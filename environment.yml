@@ -1,0 +1,21 @@
+name: tt_su
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11.3
+  - matplotlib
+  - scipy
+  - numpy
+  - pandas
+  - scikit-learn
+  - numba
+  - python-neo
+  - pip
+  - pip:
+      - mne
+      - dPCA
+      - av
+      - ephyviewer
+      - BCI2kReader
+prefix: /home/eduardo/anaconda3/envs/tt_su
