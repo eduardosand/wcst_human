@@ -10,12 +10,9 @@ from scipy import stats
 Created on Wed Jul  5 11:52:27 2023
 
 @author: edsan
-"""
 
-# Aim of this script is the following macroscopically
-# 1. Determine which participants are the top 50%
-
-"""
+The aim of this script is to figure out the top 50% of participants
+that completed the wisconsin card sorting
 To do that, we need the following:
     
     1. Load in data from one participant
@@ -42,7 +39,21 @@ def get_wcst_rt(file_name):
     return trials, rt
 
 
-def process_wcst_behavior(file_name, running_avg):
+def process_wcst_behavior(file_name, running_avg=5):
+    """
+    takes behavior in csv files and recodes the rule, choice, rule dimension,
+    and running average accuracy based on a hyperparameter
+    :param file_name: string
+        path to the csv file containing wcst behavioral data
+    :param running_avg: int, optional
+        integer that determines how to calculate the running average accuracy
+    :return: beh_data: dataframe
+        dataframe containing behavior data for participant
+    :return: rule_shifts_ind : list of bool
+        the indices (raw) where the rule shifts
+    :return: (incorrect_eq, incorrect_shifts): tuple
+        whether the rule or shift determined on our side, matches the one in the csv file.
+    """
     beh_data = pd.read_csv(file_name)
     keys_img_location_dict = {'left': 4, 'down': 2, 'right': 3, 'up': 1,
                               'None': 'None'}
@@ -78,21 +89,14 @@ def process_wcst_behavior(file_name, running_avg):
         # magic number 5 bc running average is 5
         beh_data.loc[row, f'running_avg_{running_avg}'] = np.mean(
             beh_data.loc[np.arange(max(row - running_avg + 1, 0), row + 1), 'correct'])
-    # Again, thank you to whoever double coded S. First check if there even are S trials in this.
+    # The rule S can mean two separate rules. So we'll check for this.
     if len(problem_rows) > 0:
         # General solution for figuring out what double coded is, in an algorithmic way:
-        # Macro - We'd like to look if subject got it correct because then we can look at the image chosen, and look at
-        # the index of the image chosen (this corresponds to the rule dimension, I think); However, because they aren't
-        # getting it right always, I also need to figure out way to get rule dimension on those trials.
         # The algorithm is to find long runs of S, assume it's one rule and rules don't switch from S to S.
         # For these long runs, unless it's the end of the task, the last five trials of the R should be 100% accurate,
         # or at least 3/5. For these correct ones, look at what image was chosen and check the index. Since sometimes,
         # S can appear in both, we just take the mode of the indexes over these correct trials.
 
-        # Here, i'm gonna just the average index of the last five in a run of trials where the rule was S. If the rule changes
-        # from s to s, this won't work. Unforunately, the rule shift existing array doesn't match the correctness for this
-        # behavioral data, so we're flying blind and can't use that to help for where this code won't work. The best we can
-        # do is manually check after.
         sorted_problem_rows = np.sort(problem_rows)
         problem_rows_diff = np.abs(np.diff(sorted_problem_rows))
         # This logic is a bit convoluted but stay with me here. I'm going to take all the problem rows indices, and then
@@ -100,15 +104,13 @@ def process_wcst_behavior(file_name, running_avg):
         # From here, we assume that this discontinuity is greater than 5 to truly be separate problems.
 
         problem_rows_diff_ind = problem_rows_diff[problem_rows_diff > 1]
-        problem_rows_diff_ind_pruned = [ind for ind in range(len(problem_rows_diff_ind)-1) if
-                                        np.abs(problem_rows_diff_ind[ind]-problem_rows_diff_ind[ind+1]) < 5]
         # Okay we have indices for when indices skip, so we can take the rows between them as runs of s,
         # we then need to take the index of the last five in a run
         start_with_rule_s = True if problem_rows[0] == 0 else False
         if start_with_rule_s:
-            dimension_index = 0
-            # here we're looking for
-            # dimension_index =
+            raise NotImplementedError
+            # TO DO, this code has never been run, so don't write it until needed...
+            # dimension_index = 0
         else:
             if len(problem_rows_diff_ind) == 0:
                 s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in sorted_problem_rows
@@ -118,7 +120,6 @@ def process_wcst_behavior(file_name, running_avg):
                     beh_data.loc[problem_rows, 'rule dimension'] = 'Shape'
                 else:
                     beh_data.loc[problem_rows, 'rule dimension'] = 'Texture'
-
 
     # Check for internal consistency because one of the csvs have weird rule shift parameters, that don't match the
     # rest of the file
