@@ -68,7 +68,7 @@ def process_wcst_behavior(file_name, running_avg=5):
     beh_data['correct'] = int(0)
     beh_data['chosen'] = ''
     beh_data['rule_shift_bool'] = ''
-    beh_data[f'running_avg_{running_avg}'] = 0
+    beh_data[f'running_avg_{running_avg}'] = 0.
     beh_data['rule dimension'] = ''
     for row in beh_data.index.values:
         if pd.isna(beh_data.loc[row, 'key_resp_2_keys']):
