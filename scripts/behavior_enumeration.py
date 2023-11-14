@@ -9,6 +9,7 @@ from pathlib import Path
 from collections import Counter
 import pandas as pd
 
+
 def feature_count(feature_list, feature_list_2=[], double=False):
     """
     Counts the number of each distinct element in list. If double boolean is used, enumerate by tuples
@@ -31,7 +32,7 @@ def feature_count(feature_list, feature_list_2=[], double=False):
     return counts_dict
 
 
-def enumerate_cond(beh_data):
+def enumerate_cond_sess(beh_data):
     """
     This function serves to provide us with dictionaries that enumerate the number of trials per conditions for
     rule, feedback, rule dimension, key press, number of problems, ruleXfeedback, rule dimensionXfeedback
@@ -83,20 +84,22 @@ def enumerate_cond(beh_data):
     return enumeration_dict
 
 
-def main():
-
-    subject = 'IR87'
-    print(os.getcwd())
-
-    # This works on Windows, hasn't been tested on Linux/Mac
-    data_dir = Path(f"{os.pardir}/data/{subject}")
-    sessions = os.listdir(data_dir)
-    results_dir = Path(f"{os.pardir}/results")
+def enumerate_cond_subject(data_dir, results_dir, subject):
+    """
+    This code builds on the previous two functions above to enumerate conditions for all sessions within a single
+    subject, separately and by collapsing across them. Output is a csv file that is saved to results_dir
+    :param data_dir: Path object. Where the data lives. Expected file structure is subject/sess-#/behavior/file.csv
+    :param results_dir: Path object. Where to output results.
+    :param subject:  String. Subject identifier
+    :return:
+    """
     global_dict = {}
+    sessions = os.listdir(data_dir)
     for session in sessions:
         curr_session = int(session[-1])
         print(curr_session)
-        file_path = data_dir / f"sess-{curr_session}" / "behavior" /  f'sub-{subject}-sess-{curr_session}-beh.csv'
+        # this is the one magic string in this code
+        file_path = data_dir / f"sess-{curr_session}" / "behavior" / f'sub-{subject}-sess-{curr_session}-beh.csv'
 
         # Linux
         # data_directory = f"/home/eduardo/WCST_Human/{subject}"
@@ -107,13 +110,12 @@ def main():
 
         # Windows
         beh_data, _, (in_eq, in_shifts) = process_wcst_behavior(file_path)
-        enumeration_dict = enumerate_cond(beh_data)
+        enumeration_dict = enumerate_cond_sess(beh_data)
         global_dict[curr_session] = enumeration_dict
         # Also add in here, collapsing across sessions
 
-
-     # Next, we just need to collapse data into a bigger summary dictionary to get a sense for what's possible if we
-     # we want to do pseudo-population things
+    # Next, we just need to collapse data into a bigger summary dictionary to get a sense for what's possible if we
+    # we want to do pseudo-population things
     summary_dict = {}
     for dict_key in global_dict[curr_session].keys():
         print(dict_key)
@@ -131,6 +133,17 @@ def main():
             curr_session = int(session[-1])
             pd.DataFrame(global_dict[curr_session]).to_excel(writer, sheet_name=f"sess-{curr_session}")
         pd.DataFrame(summary_dict).to_excel(writer, sheet_name="Summary")
+
+
+def main():
+
+    subject = 'IR87'
+    print(os.getcwd())
+
+    # This works on Windows, hasn't been tested on Linux/Mac
+    data_dir = Path(f"{os.pardir}/data/{subject}")
+    results_dir = Path(f"{os.pardir}/results")
+    enumerate_cond_subject(data_dir, results_dir, subject)
 
     print('hooray')
 
