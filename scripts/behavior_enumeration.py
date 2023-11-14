@@ -5,6 +5,7 @@
 from behavior_analysis import process_wcst_behavior
 import os
 import numpy as np
+from pathlib import Path
 
 
 def feature_count(feature_list, feature_list_2=[], double=False):
@@ -80,40 +81,39 @@ def enumerate_cond(beh_data):
                         'rule_dim': rule_dim_dict, 'key_press':key_press_dict, 'warning error': num_problems_dict}
     return enumeration_dict
 
+
 def main():
 
     subject = 'IR87'
+    print(os.getcwd())
 
-
+    # This works on Windows, hasn't been tested on Linux/Mac
+    data_dir = Path(f"{os.pardir}/data/{subject}")
+    sessions = os.listdir(data_dir)
+    results_dir = Path(f"{os.pardir}/results")
+    curr_session = int(sessions[-1][-1])
+    print(curr_session)
+    file_path = data_dir / f"sess-{curr_session}" / "behavior" /  f'sub-{subject}-sess-{curr_session}-beh.csv'
 
     # Linux
-    data_directory = f"/home/eduardo/WCST_Human/{subject}"
-    sessions = os.listdir(data_directory)
-    curr_session = int(sessions[0][-1])
-    the_rest = f"sess-{curr_session}/behavior"
-    results_directory = "/home/eduardo/tt_su/results"
+    # data_directory = f"/home/eduardo/WCST_Human/{subject}"
+    # sessions = os.listdir(data_directory)
+    # curr_session = int(sessions[0][-1])
+    # the_rest = f"sess-{curr_session}/behavior"
+    # results_directory = "/home/eduardo/tt_su/results"
 
     # Windows
-    data_directory = f"C:\\Users\edsan\PycharmProjects\wcst_human\data\{subject}"
-    sessions = os.listdir(data_directory)
-    curr_session = int(sessions[0][-1])
-    the_rest = f"sess-{curr_session}\\behavior"
-    results = f"C:\\Users\edsan\PycharmProjects\wcst_human\\results"
-
-
-
-    session = '4'
     # next step use the file names to process the behavior and read that in
-    file_name = f'sub-{subject}-sess-{session}-beh.csv'
-    file_path = os.path.join(data_directory, file_name)
+    # file_name = f'sub-{subject}-sess-{session}-beh.csv'
+    # file_path = os.path.join(data_directory, file_name)
     beh_data, _, (in_eq, in_shifts) = process_wcst_behavior(file_path)
     enumeration_dict = enumerate_cond(beh_data)
 
-# Also add in here, collapsing across sessions
+    # Also add in here, collapsing across sessions
 
 
-# Next, we just need to put it all together into a dataframe
-print('hooray')
+    # Next, we just need to put it all together into a dataframe
+    print('hooray')
 
 if __name__ == "__main__":
     main()
