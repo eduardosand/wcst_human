@@ -6,7 +6,8 @@ from behavior_analysis import process_wcst_behavior
 import os
 import numpy as np
 from pathlib import Path
-
+from collections import Counter
+import pandas as pd
 
 def feature_count(feature_list, feature_list_2=[], double=False):
     """
@@ -48,14 +49,14 @@ def enumerate_cond(beh_data):
 
     key_press_dict = feature_count(beh_data['key_resp_2_keys'])
 
-    num_problems_dict = feature_count(beh_data['rule_shift_bool'])
+    num_problems_dict = feature_count(beh_data['rule_shift_data'])
 
     # preservative errors
     # defined as the continuation of a choice, long past the rule has changed.
     beh_data['preservative_error'] = 0.
 
     # To find the evidence of a preservative error, we'll need to find the rule_shift
-    rule_shifts_ind = beh_data[beh_data.rule_shift_bool == True].index
+    rule_shifts_ind = beh_data[beh_data.rule_shift_data == True].index
     # rule shift corresponds to the trial after, so rule in rule_shifts_ind is the 'old' rule
     # Next check for incorrect following the rule shift
     for curr_rule in range(len(rule_shifts_ind)):
@@ -91,30 +92,46 @@ def main():
     data_dir = Path(f"{os.pardir}/data/{subject}")
     sessions = os.listdir(data_dir)
     results_dir = Path(f"{os.pardir}/results")
-    global_dictionary = {}
+    global_dict = {}
     for session in sessions:
         curr_session = int(session[-1])
         print(curr_session)
-        if curr_session in [1,2]:
-            continue
-        else:
-            file_path = data_dir / f"sess-{curr_session}" / "behavior" /  f'sub-{subject}-sess-{curr_session}-beh.csv'
+        file_path = data_dir / f"sess-{curr_session}" / "behavior" /  f'sub-{subject}-sess-{curr_session}-beh.csv'
 
-            # Linux
-            # data_directory = f"/home/eduardo/WCST_Human/{subject}"
-            # sessions = os.listdir(data_directory)
-            # curr_session = int(sessions[0][-1])
-            # the_rest = f"sess-{curr_session}/behavior"
-            # results_directory = "/home/eduardo/tt_su/results"
+        # Linux
+        # data_directory = f"/home/eduardo/WCST_Human/{subject}"
+        # sessions = os.listdir(data_directory)
+        # curr_session = int(sessions[0][-1])
+        # the_rest = f"sess-{curr_session}/behavior"
+        # results_directory = "/home/eduardo/tt_su/results"
 
-            # Windows
-            beh_data, _, (in_eq, in_shifts) = process_wcst_behavior(file_path)
-            enumeration_dict = enumerate_cond(beh_data)
-            global_dictionary[curr_session] = enumeration_dict
-            # Also add in here, collapsing across sessions
+        # Windows
+        beh_data, _, (in_eq, in_shifts) = process_wcst_behavior(file_path)
+        enumeration_dict = enumerate_cond(beh_data)
+        global_dict[curr_session] = enumeration_dict
+        # Also add in here, collapsing across sessions
 
 
-            # Next, we just need to put it all together into a dataframe
+     # Next, we just need to collapse data into a bigger summary dictionary to get a sense for what's possible if we
+     # we want to do pseudo-population things
+    summary_dict = {}
+    for dict_key in global_dict[curr_session].keys():
+        print(dict_key)
+        summary_dict[dict_key] = Counter(global_dict[curr_session][dict_key])
+        for session in sessions:
+            curr_session = int(session[-1])
+            if dict_key not in summary_dict:
+                summary_dict[dict_key] = Counter(global_dict[curr_session][dict_key])
+            else:
+                summary_dict[dict_key] += Counter(global_dict[curr_session][dict_key])
+
+    results_file = results_dir / f"{subject}_summary_stats.xlsx"
+    with pd.ExcelWriter(results_file) as writer:
+        for session in sessions:
+            curr_session = int(session[-1])
+            pd.DataFrame(global_dict[curr_session]).to_excel(writer, sheet_name=f"sess-{curr_session}")
+        pd.DataFrame(summary_dict).to_excel(writer, sheet_name="Summary")
+
     print('hooray')
 
 if __name__ == "__main__":
