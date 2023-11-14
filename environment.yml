@@ -1,4 +1,4 @@
-name: tt_su
+name: wcst_human
 channels:
   - defaults
   - conda-forge
@@ -18,4 +18,4 @@ dependencies:
       - av
       - ephyviewer
       - BCI2kReader
-prefix: /home/eduardo/anaconda3/envs/tt_su
+prefix: /home/eduardo/anaconda3/envs/wcst_human
