@@ -22,15 +22,20 @@ do
   do
     modified_session_path=$(echo "$modified_subject_path" | sed "s/session/$session/")
 #    modified_session_path="${modified_subject_path//session/$session}"
-    full_path="$starting_path/$modified_session_path"
-    echo "$full_path"
-    modified_local_path=$(echo "$modified_session_path" | sed "s/behavior//")
-    full_local_path="$local_path/$modified_local_path"
-    # check if full_path exists
-#    if [ -e "$full_path" ]; then
-#      echo nice
-    mkdir -p $full_local_path
-    scp -r -v "$remote_user@$remote_host:$full_path" "$full_local_path"
-#    fi
+    remote_folder="$starting_path/$modified_session_path"
+    ssh "$remote_user@$remote_host" "[ -d \"$remote_folder\" ]" 2>/dev/null
+    # outer if checks if folder exists server side
+    if [ $? -eq 0 ]; then
+      echo "Folder exists: $remote_folder"
+      echo "$full_path"
+      modified_local_path=$(echo "$modified_session_path" | sed "s/behavior//")
+      full_local_path="$local_path/$modified_local_path"
+      # check if full_path exists
+  #    if [ -e "$full_path" ]; then
+  #      echo nice
+      mkdir -p $full_local_path
+      scp -r -v "$remote_user@$remote_host:$remote_folder" "$full_local_path"
+  #    fi
+    fi
   done
 done
