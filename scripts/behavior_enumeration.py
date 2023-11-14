@@ -137,13 +137,15 @@ def enumerate_cond_subject(data_dir, results_dir, subject):
 
 def main():
 
-    subject = 'IR87'
-    print(os.getcwd())
-
-    # This works on Windows, hasn't been tested on Linux/Mac
-    data_dir = Path(f"{os.pardir}/data/{subject}")
     results_dir = Path(f"{os.pardir}/results")
-    enumerate_cond_subject(data_dir, results_dir, subject)
+
+    subjects = ['IR87', 'IR86']
+    for subject in subjects:
+        print(os.getcwd())
+
+        # This works on Windows, hasn't been tested on Linux/Mac
+        data_dir = Path(f"{os.pardir}/data/{subject}")
+        enumerate_cond_subject(data_dir, results_dir, subject)
 
     print('hooray')
 
