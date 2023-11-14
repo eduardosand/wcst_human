@@ -10,7 +10,7 @@ starting_path="/mnt/U19_NAS/human_data/wcst"
 # template path
 template_path="subject/sess-session/raw"
 
-local_path="/home/eduardo/WCST_Human"
+local_path="/home/eduardo/wcst_human/data"
 # Looping through each subject
 for subject in IR85 IR87 IR94 IR95 DA9
 do

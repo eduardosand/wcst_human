@@ -9,9 +9,10 @@ starting_path="/mnt/U19_NAS/human_data/wcst"
 # template path
 template_path="subject/sess-session/behavior"
 
-local_path="/home/eduardo/WCST_Human"
+local_path="/home/eduardo/wcst_human/data"
 # Looping through each subject
-for subject in IR82 IR84 IR85 IR86 IR87 IR94 IR95 IR98 IR99 IR100 IR101 DA9
+#for subject in IR82 IR84 IR85 IR86 IR87 IR94 IR95 IR98 IR99 IR100 IR101 DA9
+for subject in IR92
 do
   echo $subject
   # replace all occurrences of subject with current

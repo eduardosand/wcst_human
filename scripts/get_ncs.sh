@@ -17,7 +17,7 @@ photodiode_files="photo*.ncs"
 event_file="Events.nev"
 
 # Local file structure
-local_path="/home/eduardo/WCST_Human"
+local_path="/home/eduardo/wcst_human/data"
 
 # Looping through each subject
 #for subject in IR82 IR84 IR85 IR86 IR87 IR94 IR95 IR98 IR99 IR100 IR101 DA9
