@@ -76,7 +76,7 @@ def process_wcst_behavior(file_name, running_avg=5):
         resp = keys_img_location_dict[beh_data.loc[row, 'key_resp_2_keys']]
         beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
             beh_data.loc[row, 'rule_shift']]
-        beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule']]
+        beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule'].strip()]
         if resp == 'None':
             beh_data.loc[row, 'chosen'] = 'None'
         else:
@@ -104,11 +104,28 @@ def process_wcst_behavior(file_name, running_avg=5):
         # From here, we assume that this discontinuity is greater than 5 to truly be separate problems.
 
         problem_rows_diff_ind = problem_rows_diff[problem_rows_diff > 1]
+        actual_index = np.argwhere(problem_rows_diff>1)
         # Okay we have indices for when indices skip, so we can take the rows between them as runs of s,
         # we then need to take the index of the last five in a run
         start_with_rule_s = True if problem_rows[0] == 0 else False
         if start_with_rule_s:
-            raise NotImplementedError
+            print(sorted_problem_rows)
+            if actual_index.shape[0] == 0:
+                s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in
+                               sorted_problem_rows
+                               if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
+                        row, 'ans_correctness'] > 0)]
+            else:
+                s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in sorted_problem_rows[:actual_index[0][0]]
+                               if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
+                        row, 'ans_correctness'] > 0)]
+            index_mode = stats.mode(s_in_chosen, keepdims=False)[0]
+            if index_mode == 0:
+                beh_data.loc[problem_rows, 'rule dimension'] = 'Shape'
+            else:
+                beh_data.loc[problem_rows, 'rule dimension'] = 'Texture'
+            print(f'mode:{index_mode}')
+            # raise NotImplementedError
             # TO DO, this code has never been run, so don't write it until needed...
             # dimension_index = 0
         else:

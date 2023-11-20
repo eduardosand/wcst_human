@@ -64,7 +64,10 @@ def enumerate_cond_sess(beh_data):
         old_rule = beh_data.iloc[rule_shifts_ind[curr_rule]]['rule']
         # check only trials before the first correct
         # find the first correct trial after rule shift
-        first_corr_trial = min(beh_data['correct'].iloc[rule_shifts_ind[curr_rule]+1:][beh_data.correct==1].index)
+        if len(beh_data['correct'].iloc[rule_shifts_ind[curr_rule]+1:][beh_data.correct==1].index) == 0:
+            continue
+        else:
+            first_corr_trial = min(beh_data['correct'].iloc[rule_shifts_ind[curr_rule]+1:][beh_data.correct == 1].index)
 
         # Skip the first trial after rule shift because that error is a warning error
         for i in range(rule_shifts_ind[curr_rule]+2,  first_corr_trial):
@@ -142,10 +145,10 @@ def main():
 
     results_dir = Path(f"{os.pardir}/results")
 
-    subjects = ['IR87', 'IR86', 'DA9', 'IR84', 'IR85', 'IR94', 'IR95','IR98', 'IR99', 'IR100']
+    subjects = ['IR87', 'IR86', 'DA9', 'IR84', 'IR85', 'IR94', 'IR95', 'IR99']
     for subject in subjects:
         print(os.getcwd())
-
+        print(subject)
         # This works on Windows, hasn't been tested on Linux/Mac
         data_dir = Path(f"{os.pardir}/data/{subject}")
         enumerate_cond_subject(data_dir, results_dir, subject)
