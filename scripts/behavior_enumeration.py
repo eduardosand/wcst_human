@@ -78,9 +78,12 @@ def enumerate_cond_sess(beh_data):
 
     rule_dim_feedback_dict = feature_count(beh_data['rule dimension'], beh_data['correct'], double=True)
 
+    feedback_keypress_dict = feature_count(beh_data['correct'], beh_data['key_resp_2_keys'], double=True)
+
     enumeration_dict = {'rule_dim_x_feedback': rule_dim_feedback_dict, 'rule_x_feedback': rule_feedback_dict,
-                        'perservative_errors': perservative_errors_dict, 'rule': rule_dict, 'feedback':feedback_dict,
-                        'rule_dim': rule_dim_dict, 'key_press':key_press_dict, 'warning error': num_problems_dict}
+                        'feedback_x_keypress': feedback_keypress_dict, 'perservative_errors': perservative_errors_dict,
+                        'rule': rule_dict, 'feedback':feedback_dict,
+                        'rule_dim': rule_dim_dict, 'key_press': key_press_dict, 'warning error': num_problems_dict}
     return enumeration_dict
 
 
@@ -139,7 +142,7 @@ def main():
 
     results_dir = Path(f"{os.pardir}/results")
 
-    subjects = ['IR87', 'IR86']
+    subjects = ['IR87', 'IR86', 'DA9', 'IR84', 'IR85', 'IR94', 'IR95','IR98', 'IR99', 'IR100']
     for subject in subjects:
         print(os.getcwd())
 
