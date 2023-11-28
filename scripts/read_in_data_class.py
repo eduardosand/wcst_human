@@ -38,7 +38,8 @@ def get_event_times(folder):
     Looks at just the events file for a Neuralynx data directory to get timestamps and labels
     for recording events
     :param folder: string path
-    :return:
+    :return: event_times : I think this is in seconds.
+    :return: event_labels : Whatever the annotation was.
     """
     # Obtained in seconds and assumes that the start of the file (not necessarily the task) is 0.
     all_files = os.listdir(folder)
@@ -93,6 +94,7 @@ def read_task_ncs(folder_name, file, task='None'):
     :return: task_start_segment_time:
     """
 
+    # task - string that matches the event label in the actual events file. Ideally it matches the name of the task
     file_path = os.path.join(folder_name, file)
     ncs_reader = read_file(file_path)
     ncs_reader.parse_header()
@@ -113,6 +115,8 @@ def read_task_ncs(folder_name, file, task='None'):
             task_end = ncs_reader.segment_t_stop(block_index=0, seg_index=-1)
         else:
             task_end = event_times[task_event_marker+1]
+
+        # print(float(ncs_reader.get_signal_size(block_index=0, seg_index=n_segments - 1))/sampling_rate)
 
         # The following block looks for the time of the start and end of the task we care about
         task_start_segment_index = None
