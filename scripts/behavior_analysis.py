@@ -5,6 +5,7 @@ import numpy as np
 import os
 import re
 from scipy import stats
+from pathlib import Path
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jul  5 11:52:27 2023
@@ -41,8 +42,8 @@ def get_wcst_rt(file_name):
 
 def process_wcst_behavior(file_name, running_avg=5):
     """
-    takes behavior in csv files and recodes the rule, choice, rule dimension,
-    and running average accuracy based on a hyperparameter
+    In progress. Takes raw behavioral data from WCST and adds in features to be regressed later, including
+    choice, rule dimension and running average(from hyperparamter).
     :param file_name: string
         path to the csv file containing wcst behavioral data
     :param running_avg: int, optional
@@ -55,27 +56,53 @@ def process_wcst_behavior(file_name, running_avg=5):
         whether the rule or shift determined on our side, matches the one in the csv file.
     """
     beh_data = pd.read_csv(file_name)
+    subject = beh_data['participant'][0]
+    session = beh_data['session'][0]
+    # Drop columns I don't care about
+    beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
+                   'trials.thisIndex'], axis=1)
+
+    beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
+
+    if 'key_resp_2_keys' in beh_data.columns:
+        beh_data = beh_data.rename(columns={'key_resp_2_keys': 'key press',
+                                            'key_resp_2_rt': 'rt',
+                                            'key_resp_3_keys': 'off trial key press',
+                                            'key_resp_3_rt': 'off trial rt'})
+    else:
+        # If WCST version 6, throw warning and rename columns
+        print(f'Check that {subject} and {session} were run in the same experiment version as others')
+        beh_data = beh_data.rename(columns={'key_resp_2.keys': 'key press',
+                                            'key_resp_2.rt': 'rt',
+                                            'key_resp_3.keys': 'off trial key press',
+                                            'key_resp_3.rt': 'off trial rt'})
+    # These tell us how the key pressed maps to the image locations
     keys_img_location_dict = {'left': 4, 'down': 2, 'right': 3, 'up': 1,
                               'None': 'None'}
+
     # Rule is just a letter but I can match it to rule dimension if it's correct,
     # note though that 's' was coded twice so I have to double back with these...
     # Note that these 's's may still be wrong if for some reason the rule changes from 's' to 's'. Thanks a lot to
     # whoever made this design decision. So if the rule is S it could be shape or texture, who's to say.
     rule_dict = {'S': 'Problem', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
                  'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'R': 'Texture'}
+    # Cover every possible version of this experiment
+    rule_shift_dict = {'yes': True, 'no': False, True: True, False: False, '0': False, 'extra':True, 'intra': True}
+
+    # Here we're going to process the data itself
     problem_rows = []
-    rule_shift_dict = {'yes': True, 'no': False, True: True, False: False}
     beh_data['correct'] = int(0)
     beh_data['chosen'] = ''
     beh_data['rule_shift_bool'] = ''
     beh_data[f'running_avg_{running_avg}'] = 0.
     beh_data['rule dimension'] = ''
+
     for row in beh_data.index.values:
-        if pd.isna(beh_data.loc[row, 'key_resp_2_keys']):
+        if pd.isna(beh_data.loc[row, 'key press']):
             continue
-        resp = keys_img_location_dict[beh_data.loc[row, 'key_resp_2_keys']]
+        resp = keys_img_location_dict[beh_data.loc[row, 'key press']]
         beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
-            beh_data.loc[row, 'rule_shift']]
+            beh_data.loc[row, 'shift_type']]
         beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule'].strip()]
         if resp == 'None':
             beh_data.loc[row, 'chosen'] = 'None'
@@ -93,63 +120,47 @@ def process_wcst_behavior(file_name, running_avg=5):
     if len(problem_rows) > 0:
         # General solution for figuring out what double coded is, in an algorithmic way:
         # The algorithm is to find long runs of S, assume it's one rule and rules don't switch from S to S.
-        # For these long runs, unless it's the end of the task, the last five trials of the R should be 100% accurate,
+        # For these long runs, unless it's the end of the task, the last five trials of the rule should be 100% accurate,
         # or at least 3/5. For these correct ones, look at what image was chosen and check the index. Since sometimes,
         # S can appear in both, we just take the mode of the indexes over these correct trials.
 
+        # Check for discontinuities (indicates different rules)
         sorted_problem_rows = np.sort(problem_rows)
         problem_rows_diff = np.abs(np.diff(sorted_problem_rows))
         # This logic is a bit convoluted but stay with me here. I'm going to take all the problem rows indices, and then
         # sort them. From there, look for cases where the index changes more than one (discontinuity).
         # From here, we assume that this discontinuity is greater than 5 to truly be separate problems.
 
-        problem_rows_diff_ind = problem_rows_diff[problem_rows_diff > 1]
         actual_index = np.argwhere(problem_rows_diff>1)
-        # Okay we have indices for when indices skip, so we can take the rows between them as runs of s,
-        # we then need to take the index of the last five in a run
-        start_with_rule_s = True if problem_rows[0] == 0 else False
-        if start_with_rule_s:
-            print(sorted_problem_rows)
-            if actual_index.shape[0] == 0:
-                s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in
-                               sorted_problem_rows
-                               if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
-                        row, 'ans_correctness'] > 0)]
-            else:
-                s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in sorted_problem_rows[:actual_index[0][0]]
-                               if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
-                        row, 'ans_correctness'] > 0)]
+        if actual_index.shape[0] == 0:
+            s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in
+                           sorted_problem_rows
+                           if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
+                    row, 'ans_correctness'] > 0)]
             index_mode = stats.mode(s_in_chosen, keepdims=False)[0]
             if index_mode == 0:
                 beh_data.loc[problem_rows, 'rule dimension'] = 'Shape'
             else:
                 beh_data.loc[problem_rows, 'rule dimension'] = 'Texture'
             print(f'mode:{index_mode}')
-            # raise NotImplementedError
-            # TO DO, this code has never been run, so don't write it until needed...
-            # dimension_index = 0
         else:
-            if len(problem_rows_diff_ind) == 0:
-                s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in sorted_problem_rows
-                               if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[row, 'ans_correctness'] >0)]
-                index_mode = stats.mode(s_in_chosen, keepdims=False)[0]
-                if index_mode == 0:
-                    beh_data.loc[problem_rows, 'rule dimension'] = 'Shape'
-                else:
-                    beh_data.loc[problem_rows, 'rule dimension'] = 'Texture'
+            raise NotImplementedError
+            problem_diff_ind = problem_rows_diff[problem_rows_diff > 1]
+            s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in sorted_problem_rows[:actual_index[0][0]]
+                           if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
+                    row, 'ans_correctness'] > 0)]
 
     # Check for internal consistency because one of the csvs have weird rule shift parameters, that don't match the
     # rest of the file
     incorrect_eq = (beh_data['correct'] != beh_data['ans_correctness']).any()
     beh_data['rule_shift_data'] = beh_data['rule'] != beh_data['rule'].shift(-1).fillna(beh_data['rule'])
-    incorrect_shifts = (beh_data['rule_shift_bool'] != beh_data['rule_shift_data']).any()
-    rule_shifts_ind = list(beh_data[beh_data['rule_shift_data']]['trials_thisIndex'])
-    return beh_data, rule_shifts_ind, (incorrect_eq, incorrect_shifts)
+    rule_shifts_ind = list(beh_data[beh_data['rule_shift_data']]['trial'])
+    return beh_data, rule_shifts_ind, incorrect_eq
 
 
 def wcst_features(file_name):
     beh_data, _, _ = process_wcst_behavior(file_name, 5)
-    trials = beh_data['trials_thisIndex']
+    trials = beh_data['trial']
     chosen = beh_data['chosen']
     rule = beh_data['rule']
     feedback = beh_data['correct']
