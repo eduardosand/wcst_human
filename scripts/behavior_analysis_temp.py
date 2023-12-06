@@ -4,6 +4,7 @@ raw behavior data
 """
 
 from behavior_analysis import process_wcst_behavior
+from behavior_enumeration import enumerate_cond_sess
 from pathlib import Path
 import os
 
@@ -16,3 +17,7 @@ data_directory = Path(f"{os.pardir}/data/{subject}/sess-{session}/behavior")
 file_path = data_directory / file_name
 
 beh_data, rule_shifts_ind, _ = process_wcst_behavior(file_path, running_avg=running_avg)
+
+counts_dict = enumerate_cond_sess(beh_data)
+
+print(counts_dict)

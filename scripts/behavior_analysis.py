@@ -52,7 +52,7 @@ def process_wcst_behavior(file_name, running_avg=5):
         dataframe containing behavior data for participant
     :return: rule_shifts_ind : list of bool
         the indices (raw) where the rule shifts
-    :return: (incorrect_eq, incorrect_shifts): tuple
+    :return: incorrect_eq: tuple
         whether the rule or shift determined on our side, matches the one in the csv file.
     """
     beh_data = pd.read_csv(file_name)
@@ -153,8 +153,7 @@ def process_wcst_behavior(file_name, running_avg=5):
     # Check for internal consistency because one of the csvs have weird rule shift parameters, that don't match the
     # rest of the file
     incorrect_eq = (beh_data['correct'] != beh_data['ans_correctness']).any()
-    beh_data['rule_shift_data'] = beh_data['rule'] != beh_data['rule'].shift(-1).fillna(beh_data['rule'])
-    rule_shifts_ind = list(beh_data[beh_data['rule_shift_data']]['trial'])
+    rule_shifts_ind = list(beh_data[beh_data.rule_shift_bool == True]['trial'].astype(int))
     return beh_data, rule_shifts_ind, incorrect_eq
 
 
