@@ -101,9 +101,9 @@ def process_wcst_behavior(file_name, running_avg=5):
 
     for row in beh_data.index.values:
         if pd.isna(beh_data.loc[row, 'key press']):
-            print(beh_data.loc[row, 'rule'])
             if not pd.isna(beh_data.loc[row, 'rule']):
                 beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
+                beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule'].strip()]
                 continue
             else:
                 continue
