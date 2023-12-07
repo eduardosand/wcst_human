@@ -43,7 +43,9 @@ def get_wcst_rt(file_name):
 def process_wcst_behavior(file_name, running_avg=5):
     """
     In progress. Takes raw behavioral data from WCST and adds in features to be regressed later, including
-    choice, rule dimension and running average(from hyperparamter).
+    choice, rule dimension and running average(from hyperparamter). Note the "S" pertains to two different rules.
+    To alleviate this issue, this code recasts the texture S rule as W, as in sWirl. The left over Ss pertain to the
+    star shape.
     :param file_name: string
         path to the csv file containing wcst behavioral data
     :param running_avg: int, optional
@@ -99,56 +101,70 @@ def process_wcst_behavior(file_name, running_avg=5):
 
     for row in beh_data.index.values:
         if pd.isna(beh_data.loc[row, 'key press']):
-            continue
+            print(beh_data.loc[row, 'rule'])
+            if not pd.isna(beh_data.loc[row, 'rule']):
+                beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
+                continue
+            else:
+                continue
         resp = keys_img_location_dict[beh_data.loc[row, 'key press']]
         beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
             beh_data.loc[row, 'shift_type']]
         beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule'].strip()]
+        # beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
         if resp == 'None':
             beh_data.loc[row, 'chosen'] = 'None'
         else:
             beh_data.loc[row, 'chosen'] = beh_data.loc[
                 row, f'bmp_table_{resp}'].replace('.bmp', '')
         if beh_data.loc[row, 'rule'].strip() == 'S':
-            problem_rows.append(row)
+            if beh_data.loc[row, 'rule'].index('S') == 2:
+                beh_data.loc[row, 'rule dimension'] = 'Texture'
+                beh_data.loc[row, 'rule'] = 'W'
+            else:
+                beh_data.loc[row, 'rule dimension'] = 'Shape'
+            # problem_rows.append(row)
         if beh_data.loc[row, 'rule'].strip() in beh_data.loc[row, 'chosen']:
             beh_data.loc[row, 'correct'] = int(1)
         # magic number 5 bc running average is 5
         beh_data.loc[row, f'running_avg_{running_avg}'] = np.mean(
             beh_data.loc[np.arange(max(row - running_avg + 1, 0), row + 1), 'correct'])
-    # The rule S can mean two separate rules. So we'll check for this.
-    if len(problem_rows) > 0:
-        # General solution for figuring out what double coded is, in an algorithmic way:
-        # The algorithm is to find long runs of S, assume it's one rule and rules don't switch from S to S.
-        # For these long runs, unless it's the end of the task, the last five trials of the rule should be 100% accurate,
-        # or at least 3/5. For these correct ones, look at what image was chosen and check the index. Since sometimes,
-        # S can appear in both, we just take the mode of the indexes over these correct trials.
+        beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
 
-        # Check for discontinuities (indicates different rules)
-        sorted_problem_rows = np.sort(problem_rows)
-        problem_rows_diff = np.abs(np.diff(sorted_problem_rows))
-        # This logic is a bit convoluted but stay with me here. I'm going to take all the problem rows indices, and then
-        # sort them. From there, look for cases where the index changes more than one (discontinuity).
-        # From here, we assume that this discontinuity is greater than 5 to truly be separate problems.
-
-        actual_index = np.argwhere(problem_rows_diff>1)
-        if actual_index.shape[0] == 0:
-            s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in
-                           sorted_problem_rows
-                           if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
-                    row, 'ans_correctness'] > 0)]
-            index_mode = stats.mode(s_in_chosen, keepdims=False)[0]
-            if index_mode == 0:
-                beh_data.loc[problem_rows, 'rule dimension'] = 'Shape'
-            else:
-                beh_data.loc[problem_rows, 'rule dimension'] = 'Texture'
-            print(f'mode:{index_mode}')
-        else:
-            raise NotImplementedError
-            problem_diff_ind = problem_rows_diff[problem_rows_diff > 1]
-            s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in sorted_problem_rows[:actual_index[0][0]]
-                           if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
-                    row, 'ans_correctness'] > 0)]
+    # # Hopefully irrelevant
+    # # The rule S can mean two separate rules. So we'll check for this.
+    # if len(problem_rows) > 0:
+    #     # General solution for figuring out what double coded is, in an algorithmic way:
+    #     # The algorithm is to find long runs of S, assume it's one rule and rules don't switch from S to S.
+    #     # For these long runs, unless it's the end of the task, the last five trials of the rule should be 100% accurate,
+    #     # or at least 3/5. For these correct ones, look at what image was chosen and check the index. Since sometimes,
+    #     # S can appear in both, we just take the mode of the indexes over these correct trials.
+    #
+    #     # Check for discontinuities (indicates different rules)
+    #     sorted_problem_rows = np.sort(problem_rows)
+    #     problem_rows_diff = np.abs(np.diff(sorted_problem_rows))
+    #     # This logic is a bit convoluted but stay with me here. I'm going to take all the problem rows indices, and then
+    #     # sort them. From there, look for cases where the index changes more than one (discontinuity).
+    #     # From here, we assume that this discontinuity is greater than 5 to truly be separate problems.
+    #
+    #     actual_index = np.argwhere(problem_rows_diff>1)
+    #     if actual_index.shape[0] == 0:
+    #         s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in
+    #                        sorted_problem_rows
+    #                        if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
+    #                 row, 'ans_correctness'] > 0)]
+    #         index_mode = stats.mode(s_in_chosen, keepdims=False)[0]
+    #         if index_mode == 0:
+    #             beh_data.loc[problem_rows, 'rule dimension'] = 'Shape'
+    #         else:
+    #             beh_data.loc[problem_rows, 'rule dimension'] = 'Texture'
+    #         print(f'mode:{index_mode}')
+    #     else:
+    #         raise NotImplementedError
+    #         problem_diff_ind = problem_rows_diff[problem_rows_diff > 1]
+    #         s_in_chosen = [beh_data.loc[row, 'chosen'].index('S') for row in sorted_problem_rows[:actual_index[0][0]]
+    #                        if (len(re.findall('S', beh_data.loc[row, 'chosen'])) == 1 and beh_data.loc[
+    #                 row, 'ans_correctness'] > 0)]
 
     # Check for internal consistency because one of the csvs have weird rule shift parameters, that don't match the
     # rest of the file

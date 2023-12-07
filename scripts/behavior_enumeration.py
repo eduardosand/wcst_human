@@ -45,19 +45,20 @@ def enumerate_cond_sess(beh_data):
     rule_list = beh_data['rule']
     # enumerate rules / rule dimensions
     rule_dict = feature_count(rule_list)
+    print(rule_dict)
 
     rule_dim_dict = feature_count(beh_data['rule dimension'])
 
-    key_press_dict = feature_count(beh_data['key_resp_2_keys'])
+    key_press_dict = feature_count(beh_data['key press'])
 
-    num_problems_dict = feature_count(beh_data['rule_shift_data'])
+    num_problems_dict = feature_count(beh_data['rule_shift_bool'])
 
     # preservative errors
     # defined as the continuation of a choice, long past the rule has changed.
     beh_data['preservative_error'] = 0.
 
     # To find the evidence of a preservative error, we'll need to find the rule_shift
-    rule_shifts_ind = beh_data[beh_data.rule_shift_data == True].index
+    rule_shifts_ind = beh_data[beh_data.rule_shift_bool == True].index
     # rule shift corresponds to the trial after, so rule in rule_shifts_ind is the 'old' rule
     # Next check for incorrect following the rule shift
     for curr_rule in range(len(rule_shifts_ind)):
@@ -81,7 +82,7 @@ def enumerate_cond_sess(beh_data):
 
     rule_dim_feedback_dict = feature_count(beh_data['rule dimension'], beh_data['correct'], double=True)
 
-    feedback_keypress_dict = feature_count(beh_data['correct'], beh_data['key_resp_2_keys'], double=True)
+    feedback_keypress_dict = feature_count(beh_data['correct'], beh_data['key press'], double=True)
 
     enumeration_dict = {'rule_dim_x_feedback': rule_dim_feedback_dict, 'rule_x_feedback': rule_feedback_dict,
                         'feedback_x_keypress': feedback_keypress_dict, 'perservative_errors': perservative_errors_dict,
@@ -115,7 +116,7 @@ def enumerate_cond_subject(data_dir, results_dir, subject):
         # results_directory = "/home/eduardo/tt_su/results"
 
         # Windows
-        beh_data, _, (in_eq, in_shifts) = process_wcst_behavior(file_path)
+        beh_data, _, _ = process_wcst_behavior(file_path)
         enumeration_dict = enumerate_cond_sess(beh_data)
         global_dict[curr_session] = enumeration_dict
         # Also add in here, collapsing across sessions
