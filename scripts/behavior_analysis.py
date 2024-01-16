@@ -61,7 +61,7 @@ def process_wcst_behavior(file_name, running_avg=5):
     subject = beh_data['participant'][0]
     session = beh_data['session'][0]
     # Drop columns I don't care about
-    beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
+    beh_data = beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
                    'trials.thisIndex'], axis=1)
 
     beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
@@ -87,7 +87,7 @@ def process_wcst_behavior(file_name, running_avg=5):
     # Note that these 's's may still be wrong if for some reason the rule changes from 's' to 's'. Thanks a lot to
     # whoever made this design decision. So if the rule is S it could be shape or texture, who's to say.
     rule_dict = {'S': 'Problem', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
-                 'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'R': 'Texture'}
+                 'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'W': 'Texture'}
     # Cover every possible version of this experiment
     rule_shift_dict = {'yes': True, 'no': False, True: True, False: False, '0': False, 'extra':True, 'intra': True}
 
