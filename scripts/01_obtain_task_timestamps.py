@@ -221,8 +221,10 @@ def main():
     plt.show()
 
     # Next we save our exported photodiode detected events, matched with wcst rts
-    beh_time_data = np.array([ph_onset_trials, ph_offset_button_press, padded_rts])
-    beh_df = pd.DataFrame(beh_time_data.T, columns=['Onset', 'Feedback', 'RTs'])
+    beh_time_data = np.array([ph_onset_trials, ph_offset_button_press, padded_rts, ph_onset_trials/sample_rate,
+                              ph_offset_button_press/sample_rate])
+    beh_df = pd.DataFrame(beh_time_data.T, columns=['Onset (samples)', 'Feedback (samples)', 'RTs', 'Onset (seconds)',
+                                                    'Feedback (seconds)'])
     beh_df.to_csv(folder_name.parents[0] / "behavior" / f"sub-{test_subject}-{test_session}-ph_timestamps.csv")
 
 
