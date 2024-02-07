@@ -60,36 +60,41 @@ def process_wcst_behavior(file_name, running_avg=5):
     beh_data = pd.read_csv(file_name)
     subject = beh_data['participant'][0]
     session = beh_data['session'][0]
-    # Drop columns I don't care about
-    beh_data = beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
-                   'trials.thisIndex'], axis=1)
-
-    beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
 
     if 'key_resp_2_keys' in beh_data.columns:
         beh_data = beh_data.rename(columns={'key_resp_2_keys': 'key press',
                                             'key_resp_2_rt': 'rt',
                                             'key_resp_3_keys': 'off trial key press',
-                                            'key_resp_3_rt': 'off trial rt'})
+                                            'key_resp_3_rt': 'off trial rt',
+                                            'trials_thisRepN': 'trials.thisRepN',
+                                            'trials_thisN': 'trials.thisN',
+                                            'trials_thisIndex': 'trials.thisIndex',
+                                            'trials_thisTrialN': 'trials.thisTrialN'})
     else:
         # If WCST version 6, throw warning and rename columns
         print(f'Check that {subject} and {session} were run in the same experiment version as others')
         beh_data = beh_data.rename(columns={'key_resp_2.keys': 'key press',
                                             'key_resp_2.rt': 'rt',
                                             'key_resp_3.keys': 'off trial key press',
-                                            'key_resp_3.rt': 'off trial rt'})
+                                            'key_resp_3.rt': 'off trial rt',
+                                            'shift_type': 'rule_shift'})
     # These tell us how the key pressed maps to the image locations
     keys_img_location_dict = {'left': 4, 'down': 2, 'right': 3, 'up': 1,
                               'None': 'None'}
 
+    # Drop columns I don't care about
+    beh_data = beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
+                              'trials.thisIndex'], axis=1)
+
+    beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
     # Rule is just a letter but I can match it to rule dimension if it's correct,
     # note though that 's' was coded twice so I have to double back with these...
     # Note that these 's's may still be wrong if for some reason the rule changes from 's' to 's'. Thanks a lot to
     # whoever made this design decision. So if the rule is S it could be shape or texture, who's to say.
     rule_dict = {'S': 'Problem', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
-                 'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'W': 'Texture'}
+                 'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'W': 'Texture', 'R': 'Texture'}
     # Cover every possible version of this experiment
-    rule_shift_dict = {'yes': True, 'no': False, True: True, False: False, '0': False, 'extra':True, 'intra': True}
+    rule_shift_dict = {'yes': True, 'no': False, True: True, False: False, '0': False, 'extra': True, 'intra': True}
 
     # Here we're going to process the data itself
     problem_rows = []
@@ -108,8 +113,11 @@ def process_wcst_behavior(file_name, running_avg=5):
             else:
                 continue
         resp = keys_img_location_dict[beh_data.loc[row, 'key press']]
+        # This should be changed for non IR87 session 4
+        # beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
+        #     beh_data.loc[row, 'shift_type']]
         beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
-            beh_data.loc[row, 'shift_type']]
+            beh_data.loc[row, 'rule_shift']]
         beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule'].strip()]
         # beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
         if resp == 'None':
@@ -185,11 +193,21 @@ def wcst_features(file_name):
 
 def plot_subject_performance(trial_num, corrects, rule_shifts, subject,
                              session, output_folder=None):
+    """
+
+    :param trial_num:
+    :param corrects: Running average correctness over trials
+    :param rule_shifts:
+    :param subject:
+    :param session:
+    :param output_folder:
+    :return:
+    """
     # We expect dataframe series for the first two and a 
     # list of dataframe indexes for the third argument
     fig = plt.figure()
     plt.plot(trial_num, corrects, linestyle='dashed')
-    plt.vlines(rule_shifts, 1, 0, 'red')
+    plt.vlines(rule_shifts[rule_shifts == True].index, 1, 0, 'red')
     plt.xlabel('Trial Number')
     plt.ylabel(f'Accuracy \n (Running Average)')
     plt.title(f'{subject} WCST performance: session {session}')
