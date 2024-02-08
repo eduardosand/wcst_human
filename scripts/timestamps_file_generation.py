@@ -1,4 +1,4 @@
-from read_in_data_class import get_event_times
+from intracranial_ephys_utils.load_data import get_event_times
 from pathlib import Path
 
 
