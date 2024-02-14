@@ -198,7 +198,7 @@ def main():
     ph_file_path = 'photo1.ncs'
     split_tup = os.path.splitext(ph_file_path)
     filename = split_tup[0]
-    ph_signal, sample_rate, _, _ = read_task_ncs(folder_name, ph_file_path, task=task,
+    ph_signal, sample_rate, _, timestamps = read_task_ncs(folder_name, ph_file_path, task=task,
                                                  events_file=event_file)
 
     diagnostic_time_series_plot(ph_signal, sample_rate, electrode_name=filename)
@@ -221,8 +221,14 @@ def main():
     plt.show()
 
     # Next we save our exported photodiode detected events, matched with wcst rts
-    beh_time_data = np.array([ph_onset_trials, ph_offset_button_press, padded_rts, ph_onset_trials/sample_rate,
-                              ph_offset_button_press/sample_rate])
+    # Importantly, we're adding here an offset, we detected events using the number of samples since the start of the
+    # annotation provided by previous script,
+    # but when we look at neural timestamps, they are in machine time. We can subtract from machine
+    # time at start of that recording but we also need to take care of additional offset due to the annotation itself.
+    beh_time_data = np.array([ph_onset_trials+timestamps[0]*sample_rate,
+                              ph_offset_button_press+timestamps[0]*sample_rate,
+                              padded_rts, ph_onset_trials/sample_rate+timestamps[0],
+                              ph_offset_button_press/sample_rate+timestamps[0]])
     beh_df = pd.DataFrame(beh_time_data.T, columns=['Onset (samples)', 'Feedback (samples)', 'RTs', 'Onset (seconds)',
                                                     'Feedback (seconds)'])
     beh_df.to_csv(folder_name.parents[0] / "behavior" / f"sub-{test_subject}-{test_session}-ph_timestamps.csv")
