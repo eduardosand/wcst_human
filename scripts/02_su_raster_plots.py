@@ -8,6 +8,29 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 
+
+def plot_neural_spike_trains(ax, spike_trains, beh_conditions):
+    """
+    Ideally this function takes in an axis and some spike train data, along with behavioral labels
+    to generate a plot that colors the spike trains by condition and then plots them
+    :param ax: Matplotlib axis object
+    :param spike_trains: n_trials*n_timepoints. Should be pre-aligned
+    :param beh_conditions: Labels for each trial
+    :return:
+    """
+    sort_order = sorted(set(beh_conditions))
+    # color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
+    color_dict = dict(zip(sort_order, ['purple', 'yellow']))
+    paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
+    sorted_pairs = sorted(paired_list, key=lambda x: (x[1],x[2]))
+    spike_trains_sorted = [sorted_pairs[i][0] for i in range(len(sorted_pairs))]
+    beh_conditions_sorted = [sorted_pairs[i][1] for i in range(len(sorted_pairs))]
+    ax.eventplot(spike_trains_sorted, linelengths=linelength,
+                        colors=list(map(color_dict.get, beh_conditions_sorted)))
+
+    ax.axvline(0, linestyle='--', c='black')
+    ax.set_xlabel("Time (s)")
+
 session = 'sess-4'
 subject = 'IR87'
 data_directory = Path(f"{os.pardir}/data/{subject}/{session}/")
@@ -21,6 +44,7 @@ timestamps_file = "sub-IR87-sess-4-ph_timestamps.csv"
 beh_timestamps = pd.read_csv(beh_directory / timestamps_file)
 feedback_times = beh_timestamps['Feedback (seconds)']
 onset_times = beh_timestamps['Onset (seconds)']
+
 matplotlib.rcParams['font.size'] = 12.0
 
 # global t-start
@@ -61,7 +85,7 @@ for file in all_su_files:
                     single_trial_spikes = single_trial_spikes[((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
                     trial_wise_feedback_spikes.append([single_trial_spikes, beh_data['rule dimension'][trial_ind],
                                                        beh_data['correct'][trial_ind]])
-            if i==0:
+            if i == 0:
                 # With the spikes in tow, we'll begin to sort them according rule dimension first
                 sort_order = sorted(set(beh_data['rule dimension']))
                 trial_wise_feedback_spikes.sort(key=lambda x: sort_order.index(x[1]))
@@ -84,6 +108,7 @@ for file in all_su_files:
                         # select within bounds of analysis window (check for  both conditions)
                         single_trial_spikes = single_trial_spikes[((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
                         trial_wise_onset_spikes.append([single_trial_spikes, beh_data['rule dimension'][trial_ind]])
+                        # trial_wise_onset_spikes.append(single_trial_spikes)
 
                 trial_wise_onset_spikes.sort(key=lambda x: sort_order.index(x[1]))
                 sorted_rule_dims = [trial_wise_onset_spikes[trial_info][1] for trial_info in
@@ -139,22 +164,22 @@ for file in all_su_files:
                         single_trial_spikes = (su_timestamps - onset_time)
                         # select within bounds of analysis window (check for  both conditions)
                         single_trial_spikes = single_trial_spikes[((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
-                        trial_wise_onset_spikes.append([single_trial_spikes, beh_data['rule dimension'][trial_ind],
-                                                        beh_data['correct'][trial_ind]])
+                        trial_wise_onset_spikes.append(single_trial_spikes)
+                        # trial_wise_onset_spikes.append([single_trial_spikes, beh_data['rule dimension'][trial_ind],
+                        #                                 beh_data['correct'][trial_ind]])
 
-                trial_wise_onset_spikes.sort(key=lambda x: sort_order.index(x[2]))
-                sorted_feedback_cond = [trial_wise_onset_spikes[trial_info][2] for trial_info in
-                                    range(len(trial_wise_onset_spikes))]
-                sorted_onset_spikes = [trial_wise_onset_spikes[trial_info][0]
-                                       for trial_info in range(len(trial_wise_onset_spikes))]
-                axs[i, 1].eventplot(sorted_onset_spikes, linelengths=linelength,
-                                    colors=list(map(color_dict.get, sorted_feedback_cond)))
+                # trial_wise_onset_spikes.sort(key=lambda x: sort_order.index(x[2]))
+                # sorted_feedback_cond = [trial_wise_onset_spikes[trial_info][2] for trial_info in
+                #                     range(len(trial_wise_onset_spikes))]
+                # sorted_onset_spikes = [trial_wise_onset_spikes[trial_info][0]
+                #                        for trial_info in range(len(trial_wise_onset_spikes))]
+                # axs[i, 1].eventplot(sorted_onset_spikes, linelengths=linelength,
+                #                     colors=list(map(color_dict.get, sorted_feedback_cond)))
+                #
+                # axs[i, 1].axvline(0, linestyle='--', c='black')
+                # axs[i, 1].set_xlabel("Time (s)")
 
-                axs[i, 1].axvline(0, linestyle='--', c='black')
-                axs[i, 1].set_xlabel("Time (s)")
-                # axs[1].eventplot(sorted_onset_spikes, linelengths=linelength, colors=list(map(color_dict.get, sorted_rule_dims)), label=sorted_rule_dims)
-                # axs[1].legend(bbox_to_anchor=(0., 1.0, 1., .10), loc=3, ncol=3, mode="expand", borderaxespad=0.)
-                # axs[1].legend()
+                plot_neural_spike_trains(axs[i,1], trial_wise_onset_spikes, beh_data['correct'])
 
                 # Create a summarized legend
                 custom_legend = [
@@ -175,62 +200,6 @@ for file in all_su_files:
 
             # axs.eventplot(su_timestamps.T)
         plt.show()
-print(poop)
 
 
-
-neuron_count = 0
-for file in all_su_files:
-    data = loadmat(su_data_dir / file)
-    # print(file)
-    # print(data['useNegative'])
-    # print(data['useNegative'].shape)
-    neuron_count += data['useNegative'][0].shape[0]
-
-# for each feedback time, start at -2.5 from that, and capture all spikes in a 100 ms window.
-tmin = -2.5  # in seconds
-tmax = 0.7  # in seconds
-
-start = feedback_times+tmin
-step = 0.1  # in seconds
-overlap = 0.05
-trial_time = np.linspace(tmin, tmax, int(abs(tmin-tmax)/overlap+1))
-
-su_data = np.zeros((feedback_times.shape[0], neuron_count, trial_time.shape[0]-1))
-print(all_su_files)
-for file in all_su_files:
-    data = loadmat(os.path.join(su_data_dir, file))
-
-# useNegative - the clusters that were deemed single units
-# newTimestampsNegative - timestamps for all detected spikes in the files
-# assignedNegative - the cluster corresponding to each detected spike in newTimestampsNegative
-
-    su_clusters = data['useNegative'][0]
-
-    for cluster_ind, su_cluster_num in enumerate(su_clusters):
-        # first axis is the spike number and second axis has two values, one of the timestamps and one of the cluster code
-        su_timestamps = np.array([[data['newTimestampsNegative'][0, i], data['assignedNegative'][0, i]] for i in range(data['newTimestampsNegative'].shape[1])
-                         if data['assignedNegative'][0, i] in [su_cluster_num]])
-        print(su_timestamps.shape)
-        number_spikes.append(su_timestamps.shape[0])
-        # convert all spike_times to seconds
-        su_time_convert = np.array([[su_timestamps[i, 1], su_timestamps[i, 0]*10**-6 - reader.global_t_start] for i in range(su_timestamps.shape[0])])
-
-        # Now we have a few options
-        # but let's keep it simple
-        # we have all the event times, so instead of making a signal from scratch... We'll just go from -2.5 to 0.7 relative to feedback onset
-
-
-        for trial_ind, feedback_onset in enumerate(feedback_times):
-            for i in range(n_time):
-                if start[trial_ind]+overlap*i+step > start[trial_ind]-tmin+tmax:
-                    su_data[trial_ind, curr_neuron+cluster_ind, i] = np.sum(
-                        (su_time_convert > start[trial_ind] + overlap * i) & (su_time_convert < start[trial_ind]-tmin+tmax))
-                    # print(f'Data from {start[trial_ind] + overlap * i} to {start[trial_ind]-tmin+tmax}')
-                else:
-                    su_data[trial_ind, curr_neuron+cluster_ind, i] = np.sum((su_time_convert > start[trial_ind]+overlap*i) & (su_time_convert < start[trial_ind]+overlap*i+step))
-                    # print(f'Data from {start[trial_ind]+overlap*i} to {start[trial_ind]+overlap*i+step}')
-    curr_neuron += len(su_clusters)
-
-print('stuff')
 
