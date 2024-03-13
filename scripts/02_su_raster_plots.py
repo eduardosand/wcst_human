@@ -71,20 +71,28 @@ for file in all_su_files:
         tmin = -1.
         tmax = 1.5
         linelength = 2
+        trial_wise_feedback_spikes = []
+        for trial_ind, feedback_time in enumerate(feedback_times):
+            if trial_ind in list(beh_data.index):
+                # Plot the response in spikes of this one neuron to first feedback event
+                single_trial_spikes = (su_timestamps - feedback_time)
+                # select within bounds of analysis window (check for  both conditions)
+                single_trial_spikes = single_trial_spikes[((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
+                trial_wise_feedback_spikes.append(single_trial_spikes)
+        tmin = -0.5
+        tmax = 1.5
         # Plot response in spikes of this one neuron relative to each feedback event
-        color_selection = ['purple', 'orange']
+        trial_wise_onset_spikes = []
+        for trial_ind, onset_time in enumerate(onset_times):
+            if trial_ind in list(beh_data.index):
+                # Plot the response in spikes of this one neuron to first feedback event
+                single_trial_spikes = (su_timestamps - onset_time)
+                # select within bounds of analysis window (check for  both conditions)
+                single_trial_spikes = single_trial_spikes[
+                    ((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
+                trial_wise_onset_spikes.append(single_trial_spikes)
+
         for i in range(axs.shape[0]):
-            trial_wise_feedback_spikes = []
-            trial_wise_feedback_spikes_2 = []
-            for trial_ind, feedback_time in enumerate(feedback_times):
-                if trial_ind in list(beh_data.index):
-                    # Plot the response in spikes of this one neuron to first feedback event
-                    single_trial_spikes = (su_timestamps-feedback_time)
-                    # select within bounds of analysis window (check for  both conditions)
-                    single_trial_spikes = single_trial_spikes[((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
-                    trial_wise_feedback_spikes_2.append([single_trial_spikes, beh_data['rule dimension'][trial_ind],
-                                                       beh_data['correct'][trial_ind]])
-                    trial_wise_feedback_spikes.append(single_trial_spikes)
             if i == 0:
                 # With the spikes in tow, we'll begin to sort them according rule dimension first
                 sort_order = sorted(set(beh_data['rule dimension']))
@@ -93,39 +101,10 @@ for file in all_su_files:
                 else:
                     color_dict = dict(zip(sort_order, ['purple', 'orange']))
                 plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
-                # trial_wise_feedback_spikes_2.sort(key=lambda x: sort_order.index(x[1]))
-                # sorted_rule_dims = [trial_wise_feedback_spikes_2[trial_info][1] for trial_info in range(len(trial_wise_feedback_spikes_2))]
-                # sorted_feedback_spikes = [trial_wise_feedback_spikes_2[trial_info][0]
-                #                           for trial_info in range(len(trial_wise_feedback_spikes_2))]
-                # # spike_labels = sort_order
-                # axs[i, 0].eventplot(sorted_feedback_spikes, linelengths=linelength, colors=list(map(color_dict.get, sorted_rule_dims)))
-                # axs[i, 0].axvline(0, linestyle='--', c='black')
                 axs[i, 0].set_title('Feedback-locked')
-                tmin = -0.5
-                tmax = 1.5
                 # Plot response in spikes of this one neuron relative to each feedback event
-                trial_wise_onset_spikes = []
-                for trial_ind, onset_time in enumerate(onset_times):
-                    if trial_ind in list(beh_data.index):
-                        # Plot the response in spikes of this one neuron to first feedback event
-                        single_trial_spikes = (su_timestamps - onset_time)
-                        # select within bounds of analysis window (check for  both conditions)
-                        single_trial_spikes = single_trial_spikes[((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
-                        # trial_wise_onset_spikes.append([single_trial_spikes, beh_data['rule dimension'][trial_ind]])
-                        trial_wise_onset_spikes.append(single_trial_spikes)
 
-                # trial_wise_onset_spikes.sort(key=lambda x: sort_order.index(x[1]))
-                # sorted_rule_dims = [trial_wise_onset_spikes[trial_info][1] for trial_info in
-                #                     range(len(trial_wise_onset_spikes))]
-                # sorted_onset_spikes = [trial_wise_onset_spikes[trial_info][0]
-                #                        for trial_info in range(len(trial_wise_onset_spikes))]
-                # spike_labels = sort_order
                 plot_neural_spike_trains(axs[i, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict)
-
-                # axs[i, 1].eventplot(sorted_onset_spikes, linelengths=linelength,
-                #                     colors=list(map(color_dict.get, sorted_rule_dims)))
-                #
-                # axs[i, 1].axvline(0, linestyle='--', c='black')
                 axs[i, 1].set_title("Onset-locked")
 
                 # Create a summarized legend
@@ -142,27 +121,12 @@ for file in all_su_files:
                 plt.suptitle(f"Spike plot for cluster number {su_cluster_num}")
                 plt.tight_layout()
             else:
-                print('huh')
-
                 sort_order = sorted(set(beh_data['correct']))
                 if len(sort_order) == 3:
                     color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
                 else:
                     color_dict = dict(zip(sort_order, ['purple', 'orange']))
                 plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
-
-                tmin = -0.5
-                tmax = 1.5
-                # Plot response in spikes of this one neuron relative to each feedback event
-                trial_wise_onset_spikes = []
-                for trial_ind, onset_time in enumerate(onset_times):
-                    if trial_ind in list(beh_data.index):
-                        # Plot the response in spikes of this one neuron to first feedback event
-                        single_trial_spikes = (su_timestamps - onset_time)
-                        # select within bounds of analysis window (check for  both conditions)
-                        single_trial_spikes = single_trial_spikes[((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
-                        trial_wise_onset_spikes.append(single_trial_spikes)
-
                 plot_neural_spike_trains(axs[i, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict)
 
                 # Create a summarized legend
@@ -171,9 +135,6 @@ for file in all_su_files:
                     feedback_dim in sort_order
                 ]
 
-                # Add the summarized legend to the plot
-                # axs[1].legend(handles=custom_legend, loc='upper center')
-                # Add the summarized legend to the right of the second subplot, but within the figure
                 axs[i, 2].axis('off')  # Hide the axis
                 axs[i, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
                                  ncol=1)  # Adjust the position as needed
