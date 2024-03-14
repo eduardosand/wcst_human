@@ -55,6 +55,16 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, tmin=
 
 
 def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
+    """
+    Plot spike counts over time per conditions, using 100 ms bins and stepping by 50 ms to help with smoothing.
+    :param ax:
+    :param spike_trains:
+    :param beh_conditions:
+    :param color_dict:
+    :param tmin:
+    :param tmax:
+    :return:
+    """
     num_conditions = len(np.unique(beh_conditions))
     paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
     sorted_pairs = sorted(paired_list, key=lambda x: (x[1], x[2]))
