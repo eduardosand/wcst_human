@@ -181,9 +181,9 @@ for file in all_su_files:
                     color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
                 else:
                     color_dict = dict(zip(sort_order, ['purple', 'orange']))
-                # plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
+                plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
 
-                plot_spike_rate_curves(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
+                # plot_spike_rate_curves(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
                 axs[i, 0].set_title('Feedback-locked')
                 # Plot response in spikes of this one neuron relative to each feedback event
 
