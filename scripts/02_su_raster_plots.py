@@ -16,6 +16,7 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict):
     :param ax: Matplotlib axis object
     :param spike_trains: n_trials*n_timepoints. Should be pre-aligned
     :param beh_conditions: Labels for each trial
+    :param color_dict: How the conditions should map to colors
     :return:
     """
     paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
@@ -27,7 +28,31 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict):
 
     ax.axvline(0, linestyle='--', c='black')
     ax.set_xlabel("Time (s)")
-    return color_dict
+
+
+def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin = -0.5, tmax = 1.5):
+    """
+    This function converts spike times in original timing to trial locked spike times using both
+    timestamps, and behavioral data to check for valid trial.
+    :param su_timestamps:
+    :param trial_times:
+    :param beh_data:
+    :param tmin: defines how much before trial locked time to look for spikes
+    :param tmax: defines how much after trial locked time to look for spikes
+    :return:
+    """
+    # Plot response in spikes of this one neuron relative to each feedback event
+    trial_wise_spikes = []
+    for trial_ind, trial_time in enumerate(trial_times):
+        if trial_ind in list(beh_data.index):
+            # Plot the response in spikes of this one neuron to first feedback event
+            single_trial_spikes = (su_timestamps - trial_time)
+            # select within bounds of analysis window (check for  both conditions)
+            single_trial_spikes = single_trial_spikes[
+                    ((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
+            trial_wise_spikes.append(single_trial_spikes)
+    return trial_wise_spikes
+
 
 session = 'sess-4'
 subject = 'IR87'
@@ -68,30 +93,10 @@ for file in all_su_files:
                                  if microwire_spikes['assignedNegative'][0, i] == su_cluster_num])
 
         fig, axs = plt.subplots(2, 3, sharey=True, figsize=(6, 6), gridspec_kw={'width_ratios': [1, 1, 0.4]})
-        tmin = -1.
-        tmax = 1.5
         linelength = 2
-        trial_wise_feedback_spikes = []
-        for trial_ind, feedback_time in enumerate(feedback_times):
-            if trial_ind in list(beh_data.index):
-                # Plot the response in spikes of this one neuron to first feedback event
-                single_trial_spikes = (su_timestamps - feedback_time)
-                # select within bounds of analysis window (check for  both conditions)
-                single_trial_spikes = single_trial_spikes[((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
-                trial_wise_feedback_spikes.append(single_trial_spikes)
-        tmin = -0.5
-        tmax = 1.5
-        # Plot response in spikes of this one neuron relative to each feedback event
-        trial_wise_onset_spikes = []
-        for trial_ind, onset_time in enumerate(onset_times):
-            if trial_ind in list(beh_data.index):
-                # Plot the response in spikes of this one neuron to first feedback event
-                single_trial_spikes = (su_timestamps - onset_time)
-                # select within bounds of analysis window (check for  both conditions)
-                single_trial_spikes = single_trial_spikes[
-                    ((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
-                trial_wise_onset_spikes.append(single_trial_spikes)
-
+        trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
+        # Plot response in spikes of this one neuron relative to each onset event
+        trial_wise_onset_spikes = get_trial_wise_times(su_timestamps, onset_times, beh_data, tmin=-0.5, tmax=1.5)
         for i in range(axs.shape[0]):
             if i == 0:
                 # With the spikes in tow, we'll begin to sort them according rule dimension first
