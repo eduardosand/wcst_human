@@ -52,6 +52,8 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, tmin=
 
     ax.axvline(0, linestyle='--', c='black')
     ax.set_xlabel("Time (s)")
+
+
 def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
     num_conditions = len(np.unique(beh_conditions))
     paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
@@ -80,11 +82,19 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
             spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep)))[1]
             print(spike_counts[0, ind])
     for cond_ind in range(num_conditions):
-        ax.plot(spike_trains_sorted, linelengths=linelength,
-                     colors=list(map(color_dict.get, beh_conditions_sorted)))
+        if cond_ind == 0:
+            label_val = beh_conditions_sorted[0]
+            ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
+        elif cond_ind == num_conditions-1:
+            label_val = beh_conditions_sorted[-1]
+            ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
+        else:
+            label_val = beh_conditions_sorted[change_indices[cond_ind-1]]
+            ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
 
-    ax.axvline(0, linestyle='--', c='black')
+    # ax.axvline(0, linestyle='--', c='black')
     ax.set_xlabel("Time (s)")
+    ax.set_ylabel('Spike Counts')
 
 def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1.5):
     """
@@ -161,7 +171,9 @@ for file in all_su_files:
                     color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
                 else:
                     color_dict = dict(zip(sort_order, ['purple', 'orange']))
-                plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
+                # plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
+
+                plot_spike_rate_curves(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
                 axs[i, 0].set_title('Feedback-locked')
                 # Plot response in spikes of this one neuron relative to each feedback event
 
