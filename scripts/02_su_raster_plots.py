@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 
-def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict):
+def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
     """
     Ideally this function takes in an axis and some spike train data, along with behavioral labels
     to generate a plot that colors the spike trains by condition and then plots them
@@ -19,18 +19,74 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict):
     :param color_dict: How the conditions should map to colors
     :return:
     """
+    num_conditions = len(np.unique(beh_conditions))
     paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
     sorted_pairs = sorted(paired_list, key=lambda x: (x[1], x[2]))
     spike_trains_sorted = [sorted_pairs[i][0] for i in range(len(sorted_pairs))]
     beh_conditions_sorted = [sorted_pairs[i][1] for i in range(len(sorted_pairs))]
+    # Get the indices where sorted conditions change, useful for computing psths specific to conditions
+    change_indices = np.where(np.array(beh_conditions_sorted)[:-1] != np.array(beh_conditions_sorted)[1:])[0]+1
+
+    # next, count spikes in 100 ms bins, stepping by 50 ms
+    step = 0.050
+    trial_time = np.arange(tmin, tmax+step, step)
+    spike_counts = np.zeros((num_conditions, trial_time.shape[0]))
+    binsize = 0.1
+    for cond_ind in range(num_conditions):
+        for ind, timestep in enumerate(trial_time):
+            if cond_ind == 0:
+                all_times = np.concatenate(spike_trains_sorted[0:change_indices[0]])
+            elif cond_ind == num_conditions-1:
+                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:])
+            else:
+                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:change_indices[cond_ind]])
+            print(timestep)
+            print(timestep+binsize)
+            print(np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep))))
+            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep)))[1]
+            print(spike_counts[0, ind])
+
+
     ax.eventplot(spike_trains_sorted, linelengths=linelength,
                         colors=list(map(color_dict.get, beh_conditions_sorted)))
 
     ax.axvline(0, linestyle='--', c='black')
     ax.set_xlabel("Time (s)")
+def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
+    num_conditions = len(np.unique(beh_conditions))
+    paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
+    sorted_pairs = sorted(paired_list, key=lambda x: (x[1], x[2]))
+    spike_trains_sorted = [sorted_pairs[i][0] for i in range(len(sorted_pairs))]
+    beh_conditions_sorted = [sorted_pairs[i][1] for i in range(len(sorted_pairs))]
+    # Get the indices where sorted conditions change, useful for computing psths specific to conditions
+    change_indices = np.where(np.array(beh_conditions_sorted)[:-1] != np.array(beh_conditions_sorted)[1:])[0]+1
 
+    # next, count spikes in 100 ms bins, stepping by 50 ms
+    step = 0.050
+    trial_time = np.arange(tmin, tmax+step, step)
+    spike_counts = np.zeros((num_conditions, trial_time.shape[0]))
+    binsize = 0.1
+    for cond_ind in range(num_conditions):
+        for ind, timestep in enumerate(trial_time):
+            if cond_ind == 0:
+                all_times = np.concatenate(spike_trains_sorted[0:change_indices[0]])
+            elif cond_ind == num_conditions-1:
+                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:])
+            else:
+                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:change_indices[cond_ind]])
+            print(timestep)
+            print(timestep+binsize)
+            print(np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep))))
+            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep)))[1]
+            print(spike_counts[0, ind])
+    for cond_ind in range(num_conditions):
+        ax.plot(spike_trains_sorted, linelengths=linelength,
+                     colors=list(map(color_dict.get, beh_conditions_sorted)))
 
-def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin = -0.5, tmax = 1.5):
+    ax.axvline(0, linestyle='--', c='black')
+    ax.set_xlabel("Time (s)")
+
+def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1.5):
     """
     This function converts spike times in original timing to trial locked spike times using both
     timestamps, and behavioral data to check for valid trial.
