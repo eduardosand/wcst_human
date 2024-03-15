@@ -9,7 +9,23 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 
-def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
+def sort_spike_trains(spike_trains, beh_conditions):
+    """
+    Take spike_trains(time-locked) and behavioral conditions, and sort them for plots.
+    :param spike_trains:
+    :param beh_conditions:
+    :return:
+    """
+    paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
+    sorted_pairs = sorted(paired_list, key=lambda x: (x[1], x[2]))
+    spike_trains_sorted = [sorted_pairs[i][0] for i in range(len(sorted_pairs))]
+    beh_conditions_sorted = [sorted_pairs[i][1] for i in range(len(sorted_pairs))]
+    # Get the indices where sorted conditions change, useful for computing psths specific to conditions
+    change_indices = np.where(np.array(beh_conditions_sorted)[:-1] != np.array(beh_conditions_sorted)[1:])[0]+1
+    return spike_trains_sorted, beh_conditions_sorted, change_indices
+
+
+def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict):
     """
     Ideally this function takes in an axis and some spike train data, along with behavioral labels
     to generate a plot that colors the spike trains by condition and then plots them
@@ -19,37 +35,8 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, tmin=
     :param color_dict: How the conditions should map to colors
     :return:
     """
-    num_conditions = len(np.unique(beh_conditions))
-    paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
-    sorted_pairs = sorted(paired_list, key=lambda x: (x[1], x[2]))
-    spike_trains_sorted = [sorted_pairs[i][0] for i in range(len(sorted_pairs))]
-    beh_conditions_sorted = [sorted_pairs[i][1] for i in range(len(sorted_pairs))]
-    # Get the indices where sorted conditions change, useful for computing psths specific to conditions
-    change_indices = np.where(np.array(beh_conditions_sorted)[:-1] != np.array(beh_conditions_sorted)[1:])[0]+1
-
-    # next, count spikes in 100 ms bins, stepping by 50 ms
-    step = 0.050
-    trial_time = np.arange(tmin, tmax+step, step)
-    spike_counts = np.zeros((num_conditions, trial_time.shape[0]))
-    binsize = 0.1
-    for cond_ind in range(num_conditions):
-        for ind, timestep in enumerate(trial_time):
-            if cond_ind == 0:
-                all_times = np.concatenate(spike_trains_sorted[0:change_indices[0]])
-            elif cond_ind == num_conditions-1:
-                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:])
-            else:
-                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:change_indices[cond_ind]])
-            print(timestep)
-            print(timestep+binsize)
-            print(np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep))))
-            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep)))[1]
-            print(spike_counts[0, ind])
-
-
-    ax.eventplot(spike_trains_sorted, linelengths=linelength,
-                        colors=list(map(color_dict.get, beh_conditions_sorted)))
-
+    spike_trains_sorted, beh_conditions_sorted, change_indices = sort_spike_trains(spike_trains, beh_conditions)
+    ax.eventplot(spike_trains_sorted, linelengths=linelength, colors=list(map(color_dict.get, beh_conditions_sorted)))
     ax.axvline(0, linestyle='--', c='black')
     ax.set_xlabel("Time (s)")
 
@@ -57,22 +44,16 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, tmin=
 def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
     """
     Plot spike counts over time per conditions, using 100 ms bins and stepping by 50 ms to help with smoothing.
-    :param ax:
-    :param spike_trains:
-    :param beh_conditions:
-    :param color_dict:
+    :param ax: Axis object
+    :param spike_trains: list of lists, can't be turned into an array
+    :param beh_conditions: list of labels. labels for each trial
+    :param color_dict: Dictionary that tells what each behavioral conditions corresponds to for color labels
     :param tmin:
     :param tmax:
     :return:
     """
     num_conditions = len(np.unique(beh_conditions))
-    paired_list = list(zip(spike_trains, beh_conditions, range(len(spike_trains))))
-    sorted_pairs = sorted(paired_list, key=lambda x: (x[1], x[2]))
-    spike_trains_sorted = [sorted_pairs[i][0] for i in range(len(sorted_pairs))]
-    beh_conditions_sorted = [sorted_pairs[i][1] for i in range(len(sorted_pairs))]
-    # Get the indices where sorted conditions change, useful for computing psths specific to conditions
-    change_indices = np.where(np.array(beh_conditions_sorted)[:-1] != np.array(beh_conditions_sorted)[1:])[0]+1
-
+    spike_trains_sorted, beh_conditions_sorted, change_indices = sort_spike_trains(spike_trains, beh_conditions)
     # next, count spikes in 100 ms bins, stepping by 50 ms
     step = 0.050
     trial_time = np.arange(tmin, tmax+step, step)
@@ -102,9 +83,10 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
             label_val = beh_conditions_sorted[change_indices[cond_ind-1]]
             ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
 
-    # ax.axvline(0, linestyle='--', c='black')
+    ax.axvline(0, linestyle='--', c='black')
     ax.set_xlabel("Time (s)")
     ax.set_ylabel('Spike Counts')
+
 
 def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1.5):
     """
@@ -168,12 +150,14 @@ for file in all_su_files:
                                   range(microwire_spikes['newTimestampsNegative'].shape[1])
                                  if microwire_spikes['assignedNegative'][0, i] == su_cluster_num])
 
-        fig, axs = plt.subplots(2, 3, sharey=True, figsize=(6, 6), gridspec_kw={'width_ratios': [1, 1, 0.4]})
+        fig, axs = plt.subplots(4, 3, sharey='row', figsize=(6, 6),
+                                gridspec_kw={'width_ratios': [1, 1, 0.4]})
         linelength = 2
         trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
         # Plot response in spikes of this one neuron relative to each onset event
-        trial_wise_onset_spikes = get_trial_wise_times(su_timestamps, onset_times, beh_data, tmin=-0.5, tmax=1.5)
-        for i in range(axs.shape[0]):
+        tmin_onset = -0.5
+        trial_wise_onset_spikes = get_trial_wise_times(su_timestamps, onset_times, beh_data, tmin=tmin_onset, tmax=1.5)
+        for i in range(int(axs.shape[0]/2)):
             if i == 0:
                 # With the spikes in tow, we'll begin to sort them according rule dimension first
                 sort_order = sorted(set(beh_data['rule dimension']))
@@ -183,11 +167,11 @@ for file in all_su_files:
                     color_dict = dict(zip(sort_order, ['purple', 'orange']))
                 plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
 
-                # plot_spike_rate_curves(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
+                plot_spike_rate_curves(axs[i+1, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
                 axs[i, 0].set_title('Feedback-locked')
-                # Plot response in spikes of this one neuron relative to each feedback event
-
                 plot_neural_spike_trains(axs[i, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict)
+                plot_spike_rate_curves(axs[i+1, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict,
+                                       tmin=tmin_onset)
                 axs[i, 1].set_title("Onset-locked")
 
                 # Create a summarized legend
@@ -198,6 +182,8 @@ for file in all_su_files:
                 # Add the summarized legend to the plot
                 # axs[1].legend(handles=custom_legend, loc='upper center')
                 # Add the summarized legend to the right of the second subplot, but within the figure
+
+                axs[i+1, 2].axis('off')  # Hide the axis
                 axs[i, 2].axis('off')  # Hide the axis
                 axs[i, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
                                  ncol=1)  # Adjust the position as needed
@@ -209,8 +195,11 @@ for file in all_su_files:
                     color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
                 else:
                     color_dict = dict(zip(sort_order, ['purple', 'orange']))
-                plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
-                plot_neural_spike_trains(axs[i, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict)
+                plot_neural_spike_trains(axs[i*2, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
+                plot_spike_rate_curves(axs[i*2+1, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
+                plot_neural_spike_trains(axs[i*2, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict)
+                plot_spike_rate_curves(axs[i*2+1, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict,
+                                       tmin=tmin_onset)
 
                 # Create a summarized legend
                 custom_legend = [
@@ -218,8 +207,9 @@ for file in all_su_files:
                     feedback_dim in sort_order
                 ]
 
-                axs[i, 2].axis('off')  # Hide the axis
-                axs[i, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
+                axs[i*2+1, 2].axis('off')  # Hide the axis
+                axs[i*2, 2].axis('off')  # Hide the axis
+                axs[i*2, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
                                  ncol=1)  # Adjust the position as needed
                 plt.suptitle(f"Spike plot for cluster number {su_cluster_num}")
                 plt.tight_layout()
