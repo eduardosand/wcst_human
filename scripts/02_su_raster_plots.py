@@ -63,15 +63,19 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
         for ind, timestep in enumerate(trial_time):
             if cond_ind == 0:
                 all_times = np.concatenate(spike_trains_sorted[0:change_indices[0]])
+                num_trials = change_indices[0]
             elif cond_ind == num_conditions-1:
                 all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:])
+                num_trials = len(spike_trains_sorted)-change_indices[cond_ind-1]
             else:
                 all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:change_indices[cond_ind]])
-            print(timestep)
-            print(timestep+binsize)
-            print(np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep))))
-            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep)))[1]
-            print(spike_counts[0, ind])
+                num_trials = change_indices[cond_ind] - change_indices[cond_ind-1]
+            # print(timestep)
+            # print(timestep+binsize)
+            # print(np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep))))
+            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize) &
+                                                            (all_times >= timestep)))[1]/num_trials
+            # print(spike_counts[0, ind])
     for cond_ind in range(num_conditions):
         if cond_ind == 0:
             label_val = beh_conditions_sorted[0]
@@ -85,7 +89,7 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
 
     ax.axvline(0, linestyle='--', c='black')
     ax.set_xlabel("Time (s)")
-    ax.set_ylabel('Spike Counts')
+    ax.set_ylabel('Spike \n Counts')
 
 
 def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1.5):
