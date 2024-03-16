@@ -25,7 +25,7 @@ def sort_spike_trains(spike_trains, beh_conditions):
     return spike_trains_sorted, beh_conditions_sorted, change_indices
 
 
-def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict):
+def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, line_length=0.2):
     """
     Ideally this function takes in an axis and some spike train data, along with behavioral labels
     to generate a plot that colors the spike trains by condition and then plots them
@@ -33,12 +33,12 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict):
     :param spike_trains: n_trials*n_timepoints. Should be pre-aligned
     :param beh_conditions: Labels for each trial
     :param color_dict: How the conditions should map to colors
+    :param line_length: Length of line
     :return:
     """
     spike_trains_sorted, beh_conditions_sorted, change_indices = sort_spike_trains(spike_trains, beh_conditions)
-    ax.eventplot(spike_trains_sorted, linelengths=linelength, colors=list(map(color_dict.get, beh_conditions_sorted)))
+    ax.eventplot(spike_trains_sorted, linelengths=line_length, colors=list(map(color_dict.get, beh_conditions_sorted)))
     ax.axvline(0, linestyle='--', c='black')
-    ax.set_xlabel("Time (s)")
 
 
 def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
@@ -86,10 +86,7 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
         else:
             label_val = beh_conditions_sorted[change_indices[cond_ind-1]]
             ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
-
     ax.axvline(0, linestyle='--', c='black')
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel('Spike \n Counts')
 
 
 def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1.5):
@@ -154,14 +151,15 @@ for file in all_su_files:
                                   range(microwire_spikes['newTimestampsNegative'].shape[1])
                                  if microwire_spikes['assignedNegative'][0, i] == su_cluster_num])
 
-        fig, axs = plt.subplots(4, 3, sharey='row', figsize=(6, 6),
+        fig, axs = plt.subplots(4, 3, sharey='row', sharex='col', figsize=(6, 6),
                                 gridspec_kw={'width_ratios': [1, 1, 0.4]})
-        linelength = 2
         trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
         # Plot response in spikes of this one neuron relative to each onset event
         tmin_onset = -0.5
         trial_wise_onset_spikes = get_trial_wise_times(su_timestamps, onset_times, beh_data, tmin=tmin_onset, tmax=1.5)
         for i in range(int(axs.shape[0]/2)):
+            axs[i * 2, 0].set_ylabel("Spiking")
+            axs[i * 2 + 1, 0].set_ylabel('Spike \n Counts')
             if i == 0:
                 # With the spikes in tow, we'll begin to sort them according rule dimension first
                 sort_order = sorted(set(beh_data['rule dimension']))
@@ -177,7 +175,6 @@ for file in all_su_files:
                 plot_spike_rate_curves(axs[i+1, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict,
                                        tmin=tmin_onset)
                 axs[i, 1].set_title("Onset-locked")
-
                 # Create a summarized legend
                 custom_legend = [
                     plt.Line2D([0], [0], color=color_dict[rule], lw=2, label=rule) for rule in sort_order
@@ -204,7 +201,8 @@ for file in all_su_files:
                 plot_neural_spike_trains(axs[i*2, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict)
                 plot_spike_rate_curves(axs[i*2+1, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict,
                                        tmin=tmin_onset)
-
+                axs[i*2+1, 0].set_xlabel("Time (s)")
+                axs[i*2+1, 1].set_xlabel("Time (s)")
                 # Create a summarized legend
                 custom_legend = [
                     plt.Line2D([0], [0], color=color_dict[feedback_dim], lw=2, label=feedback_dim) for
@@ -215,7 +213,6 @@ for file in all_su_files:
                 axs[i*2, 2].axis('off')  # Hide the axis
                 axs[i*2, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
                                  ncol=1)  # Adjust the position as needed
-                plt.suptitle(f"Spike plot for cluster number {su_cluster_num}")
                 plt.tight_layout()
             # axs[0].set_ylabel("Trial Number")
 
