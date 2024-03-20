@@ -25,7 +25,7 @@ def sort_spike_trains(spike_trains, beh_conditions):
     return spike_trains_sorted, beh_conditions_sorted, change_indices
 
 
-def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, line_length=0.2):
+def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, line_length=2):
     """
     Ideally this function takes in an axis and some spike train data, along with behavioral labels
     to generate a plot that colors the spike trains by condition and then plots them
