@@ -98,7 +98,7 @@ def process_wcst_behavior(file_name, running_avg=5):
 
         beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
             beh_data.loc[row, 'rule_shift']]
-        beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule'].strip()]
+        beh_data.loc[row, 'rule dimension'] = rule_dict[rule]
         # beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
         if resp == 'None':
             beh_data.loc[row, 'chosen'] = 'None'
