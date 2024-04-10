@@ -3,35 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import re
-from scipy import stats
-from pathlib import Path
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Jul  5 11:52:27 2023
-
-@author: edsan
-
-The aim of this script is to figure out the top 50% of participants
-that completed the wisconsin card sorting
-To do that, we need the following:
-    
-    1. Load in data from one participant
-    To get response measures, we need to link their response (arrow keys) to
-    the image they chose. If the image contains the rule, we count as correct
-    
-    2. Plot responses overlaid on top of the correct responses
-    
-    3. Obtain two course grain measures. One is raw accuracy and the other is
-    how many problems were solved
-    
-    4. Place both measures, alongside how many trials were missed into a
-    separate csv file.
-    
-    5. For now, stick to one session. If we get all this done, figure out
-    how to extend to multiple sessions.
-"""
-
 
 def get_wcst_rt(file_name):
     beh_data = pd.read_csv(file_name)
@@ -107,8 +78,12 @@ def process_wcst_behavior(file_name, running_avg=5):
     for row in beh_data.index.values:
         if pd.isna(beh_data.loc[row, 'key press']):
             if not pd.isna(beh_data.loc[row, 'rule']):
-                beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
-                beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule'].strip()]
+                if len(beh_data.loc[row, 'rule'].strip()) > 1:
+                    rule = beh_data.loc[row, 'rule'].strip()[0]
+                else:
+                    rule = beh_data.loc[row, 'rule'].strip()
+                beh_data.loc[row, 'rule'] = rule
+                beh_data.loc[row, 'rule dimension'] = rule_dict[rule]
                 continue
             else:
                 continue
@@ -116,6 +91,11 @@ def process_wcst_behavior(file_name, running_avg=5):
         # This should be changed for non IR87 session 4
         # beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
         #     beh_data.loc[row, 'shift_type']]
+        if len(beh_data.loc[row, 'rule'].strip()) > 1:
+            rule = beh_data.loc[row, 'rule'].strip()[0]
+        else:
+            rule = beh_data.loc[row, 'rule'].strip()
+
         beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
             beh_data.loc[row, 'rule_shift']]
         beh_data.loc[row, 'rule dimension'] = rule_dict[beh_data.loc[row, 'rule'].strip()]
@@ -132,12 +112,12 @@ def process_wcst_behavior(file_name, running_avg=5):
             else:
                 beh_data.loc[row, 'rule dimension'] = 'Shape'
             # problem_rows.append(row)
-        if beh_data.loc[row, 'rule'].strip() in beh_data.loc[row, 'chosen']:
+        if rule in beh_data.loc[row, 'chosen']:
             beh_data.loc[row, 'correct'] = int(1)
         # magic number 5 bc running average is 5
         beh_data.loc[row, f'running_avg_{running_avg}'] = np.mean(
             beh_data.loc[np.arange(max(row - running_avg + 1, 0), row + 1), 'correct'])
-        beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
+        beh_data.loc[row, 'rule'] = rule
 
     # # Hopefully irrelevant
     # # The rule S can mean two separate rules. So we'll check for this.
