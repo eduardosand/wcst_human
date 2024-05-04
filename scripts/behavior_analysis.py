@@ -80,7 +80,6 @@ def process_wcst_behavior(file_name, running_avg=5):
         if pd.isna(beh_data.loc[row, 'key press']):
             continue
         resp = keys_img_location_dict[beh_data.loc[row, 'key press']]
-        print(beh_data.loc[row,'rule'])
         if not pd.isna(beh_data.loc[row, 'rule']):
             if len(beh_data.loc[row, 'rule'].strip()) > 1:
                 rule = beh_data.loc[row, 'rule'].strip()[0]
@@ -98,9 +97,6 @@ def process_wcst_behavior(file_name, running_avg=5):
         else:
             beh_data.loc[row, 'correct card'] = corr_card
 
-        print(rule)
-        # print(corr_card)
-        # beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
         if resp == 'None':
             beh_data.loc[row, 'chosen'] = 'None'
         else:
