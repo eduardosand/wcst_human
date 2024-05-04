@@ -48,14 +48,15 @@ def process_wcst_behavior(file_name, running_avg=5):
                                             'key_resp_2.rt': 'rt',
                                             'key_resp_3.keys': 'off trial key press',
                                             'key_resp_3.rt': 'off trial rt',
-                                            'shift_type': 'rule_shift'})
+                                            'shift_type': 'rule_shift',
+                                            'Unnamed: 21': 'nothing'})
     # These tell us how the key pressed maps to the image locations
     keys_img_location_dict = {'left': 4, 'down': 2, 'right': 3, 'up': 1,
                               'None': 'None'}
 
     # Drop columns I don't care about
     beh_data = beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
-                              'trials.thisIndex'], axis=1)
+                              'trials.thisIndex', 'off trial key press', 'off trial rt', 'nothing'], axis=1)
 
     beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
     # Rule is just a letter but I can match it to rule dimension if it's correct,
@@ -95,7 +96,7 @@ def process_wcst_behavior(file_name, running_avg=5):
         if len(corr_card) > 1:
             print('Our code for finding the correct card has duplicate cards')
         else:
-            beh_data.loc[row, 'correct card'] = corr_card
+            beh_data.loc[row, 'correct card'] = corr_card[0]
 
         if resp == 'None':
             beh_data.loc[row, 'chosen'] = 'None'
@@ -115,7 +116,6 @@ def process_wcst_behavior(file_name, running_avg=5):
         beh_data.loc[row, f'running_avg_{running_avg}'] = np.mean(
             beh_data.loc[np.arange(max(row - running_avg + 1, 0), row + 1), 'correct'])
         beh_data.loc[row, 'rule'] = rule
-        beh_data.loc[row, 'correct card'] = corr_card
 
     # # Hopefully irrelevant
     # # The rule S can mean two separate rules. So we'll check for this.
@@ -156,6 +156,7 @@ def process_wcst_behavior(file_name, running_avg=5):
     # rest of the file
     incorrect_eq = (beh_data['correct'] != beh_data['ans_correctness']).any()
     rule_shifts_ind = list(beh_data[beh_data.rule_shift_bool == True]['trial'].astype(int))
+    beh_data.dropna(subset='key press', inplace=True)
     return beh_data, rule_shifts_ind, incorrect_eq
 
 
