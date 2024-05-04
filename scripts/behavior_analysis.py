@@ -74,31 +74,32 @@ def process_wcst_behavior(file_name, running_avg=5):
     beh_data['rule_shift_bool'] = ''
     beh_data[f'running_avg_{running_avg}'] = 0.
     beh_data['rule dimension'] = ''
+    beh_data['correct card'] = ''
 
     for row in beh_data.index.values:
         if pd.isna(beh_data.loc[row, 'key press']):
-            if not pd.isna(beh_data.loc[row, 'rule']):
-                if len(beh_data.loc[row, 'rule'].strip()) > 1:
-                    rule = beh_data.loc[row, 'rule'].strip()[0]
-                else:
-                    rule = beh_data.loc[row, 'rule'].strip()
-                beh_data.loc[row, 'rule'] = rule
-                beh_data.loc[row, 'rule dimension'] = rule_dict[rule]
-                continue
-            else:
-                continue
+            continue
         resp = keys_img_location_dict[beh_data.loc[row, 'key press']]
-        # This should be changed for non IR87 session 4
-        # beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
-        #     beh_data.loc[row, 'shift_type']]
-        if len(beh_data.loc[row, 'rule'].strip()) > 1:
-            rule = beh_data.loc[row, 'rule'].strip()[0]
-        else:
-            rule = beh_data.loc[row, 'rule'].strip()
-
+        print(beh_data.loc[row,'rule'])
+        if not pd.isna(beh_data.loc[row, 'rule']):
+            if len(beh_data.loc[row, 'rule'].strip()) > 1:
+                rule = beh_data.loc[row, 'rule'].strip()[0]
+            else:
+                rule = beh_data.loc[row, 'rule'].strip()
         beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
             beh_data.loc[row, 'rule_shift']]
         beh_data.loc[row, 'rule dimension'] = rule_dict[rule]
+
+        corr_card = [i.replace('.bmp', '') for i in
+                     list(beh_data.loc[row, ['bmp_table_1', 'bmp_table_2', 'bmp_table_3', 'bmp_table_4']])
+                     if (rule in i) and (i[beh_data.loc[row, 'rule'].index(rule)] == rule)]
+        if len(corr_card) > 1:
+            print('Our code for finding the correct card has duplicate cards')
+        else:
+            beh_data.loc[row, 'correct card'] = corr_card
+
+        print(rule)
+        # print(corr_card)
         # beh_data.loc[row, 'rule'] = beh_data.loc[row, 'rule'].strip()
         if resp == 'None':
             beh_data.loc[row, 'chosen'] = 'None'
@@ -118,6 +119,7 @@ def process_wcst_behavior(file_name, running_avg=5):
         beh_data.loc[row, f'running_avg_{running_avg}'] = np.mean(
             beh_data.loc[np.arange(max(row - running_avg + 1, 0), row + 1), 'correct'])
         beh_data.loc[row, 'rule'] = rule
+        beh_data.loc[row, 'correct card'] = corr_card
 
     # # Hopefully irrelevant
     # # The rule S can mean two separate rules. So we'll check for this.
