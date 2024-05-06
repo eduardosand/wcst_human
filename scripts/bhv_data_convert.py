@@ -6,7 +6,8 @@ import numpy as np
 ################## TO DO
 # Test this code with fitting a new model and see if it works
 # Need to plot the design matrix to make sure I have what I think I have
-
+##### TO DO edit this code to work with lags
+# check this code with the current design
 
 def bhv_convert(subject, session, intercept):
     """
@@ -20,10 +21,7 @@ def bhv_convert(subject, session, intercept):
     """
 
     data_directory = Path(f"{os.pardir}/data/{subject}/{session}/")
-    ph_file_path = Path("raw/Events.nev")
     beh_directory = data_directory / "behavior"
-    running_avg = 5
-    save_directory = Path(f"{os.pardir}/data/{subject}/{session}/model")
 
     # Will Need to be changed
     beh_data, rule_shifts_ind, _ = process_wcst_behavior(beh_directory / f"{subject}_wcst6_2020_Aug_20_1802.csv")
@@ -71,7 +69,7 @@ def bhv_convert(subject, session, intercept):
 
     history_data[:, :, 0] = intercept
     # Final step, drop the first trial because there's no history of choice from the last trial
-    choice_data = choice_data[:, :, :]
+    choice_data = choice_data[1:, :, :]
     # and then drop the last trial for X because it won't predict the choice on the next trial (the next trial doesn't exist)
     history_data = history_data[:-1, :, :]
     lag = 1
@@ -80,20 +78,3 @@ def bhv_convert(subject, session, intercept):
     # add something in here to save the data as pickle files
     return history_data, choice_data
 
-
-
-# for each feature, we want number_trials-1*5 array
-subject = 'BERK01'
-session = 'sess-1'
-file_name = Path(os.pardir) / Path(f"data/{subject}/{session}/behavior/{subject}"
-                                   f"_Wisconsin Card Sorting Eduardo_2024_Apr_05_0019.csv")
-
-beh_data, _, _ = process_wcst_behavior(file_name, running_avg=5)
-
-# Big changes between the last experiment and the current one is the number of features.
-# Here we have 10 features (9 plus an empty)
-# So for each feature, we should first extract the 5 row vector for each trial (essentially, what location the feature
-# is in plus the intercept
-
-print(beh_data)
-##### TO DO edit this code to work with lags
