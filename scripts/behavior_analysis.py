@@ -56,13 +56,16 @@ def process_wcst_behavior(file_name, running_avg=5):
 
     # Drop columns I don't care about
     beh_data = beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
-                              'trials.thisIndex', 'off trial key press', 'off trial rt', 'nothing'], axis=1)
+                              'trials.thisIndex', 'off trial key press', 'off trial rt'], axis=1)
 
     beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
-    # Rule is just a letter but I can match it to rule dimension if it's correct,
-    # note though that 's' was coded twice so I have to double back with these...
-    # Note that these 's's may still be wrong if for some reason the rule changes from 's' to 's'. Thanks a lot to
-    # whoever made this design decision. So if the rule is S it could be shape or texture, who's to say.
+    # Rule is just a letter, but I can match it to rule dimension if it's correct,
+    # note though that 's' was coded twice, so I have to double back with these...
+    # Note that these 's's may still be wrong if for some reason the rule changes from 's' to 's'.
+    # So if the rule is S it could be shape or texture, who's to say.
+
+    # NOTE: The original experiment behavioral files have a way to tell between different s's. If we can find those
+    # files, this stops not working
     rule_dict = {'S': 'Problem', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
                  'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'W': 'Texture', 'R': 'Texture'}
     # Cover every possible version of this experiment
@@ -199,6 +202,12 @@ def plot_subject_performance(trial_num, corrects, rule_shifts, subject,
 
 
 def plot_group_performance(summary_data_df, output_folder=None):
+    """
+
+    :param summary_data_df:
+    :param output_folder:
+    :return:
+    """
     summary_data_df.sort_values("Number of Problems", inplace=True)
     # fig = plt.figure()
     fig, ax = plt.subplots(2, 1)
