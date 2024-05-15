@@ -58,7 +58,7 @@ session = 'sess-3'
 intercept = 1
 glmType = 1  # Bernoulli
 glmLag = 1
-num_states = 3
+num_states = 4
 observation_noise = 0
 diagonal_p = 0.9
 wzero = 1
@@ -112,7 +112,7 @@ for i, (train_index, test_index) in enumerate(kf.split(Xdata, y=Ydata)):
                         transitions='inputdriven')
     fit_ll_One = glmhmmOne.fit(Ytraindata, inputs=Xtraindata, method='em', num_iters=2,tolerance=10**-4)
 
-    glmhmm = ssm.HMM(3, 1, numInput, observations="input_driven_obs", observation_kwargs=dict(C=2),
+    glmhmm = ssm.HMM(num_states, 1, numInput, observations="input_driven_obs", observation_kwargs=dict(C=2),
                         transitions='inputdriven')
 
     glmhmm = initializeObservation(glmhmm, glmhmmOne, observation_noise)
