@@ -85,17 +85,19 @@ def process_wcst_behavior(file_name, running_avg=5):
             continue
         resp = keys_img_location_dict[beh_data.loc[row, 'key press']]
         if not pd.isna(beh_data.loc[row, 'rule']):
-            if len(beh_data.loc[row, 'rule'].strip()) > 1:
-                rule = beh_data.loc[row, 'rule'].strip()[0]
-            else:
-                rule = beh_data.loc[row, 'rule'].strip()
+            rule = beh_data.loc[row, 'rule'].strip()
+            corr_card = [i.replace('.bmp', '') for i in
+                         list(beh_data.loc[row, ['bmp_table_1', 'bmp_table_2', 'bmp_table_3', 'bmp_table_4']])
+                         if (rule in i) and (i[beh_data.loc[row, 'rule'].index(rule)] == rule)]
+            if beh_data.loc[row, 'rule'].strip() == 'S':
+                rule_ind = beh_data.loc[row, 'rule'].index('S')
+                if rule_ind == 2:
+                    rule = 'W'
+                else:
+                    rule = 'S'
         beh_data.loc[row, 'rule_shift_bool'] = rule_shift_dict[
             beh_data.loc[row, 'rule_shift']]
         beh_data.loc[row, 'rule dimension'] = rule_dict[rule]
-
-        corr_card = [i.replace('.bmp', '') for i in
-                     list(beh_data.loc[row, ['bmp_table_1', 'bmp_table_2', 'bmp_table_3', 'bmp_table_4']])
-                     if (rule in i) and (i[beh_data.loc[row, 'rule'].index(rule)] == rule)]
         if len(corr_card) > 1:
             print('Our code for finding the correct card has duplicate cards')
         else:
@@ -106,19 +108,14 @@ def process_wcst_behavior(file_name, running_avg=5):
         else:
             beh_data.loc[row, 'chosen'] = beh_data.loc[
                 row, f'bmp_table_{resp}'].replace('.bmp', '')
-        if beh_data.loc[row, 'rule'].strip() == 'S':
-            if beh_data.loc[row, 'rule'].index('S') == 2:
-                beh_data.loc[row, 'rule dimension'] = 'Texture'
-                beh_data.loc[row, 'rule'] = 'W'
-            else:
-                beh_data.loc[row, 'rule dimension'] = 'Shape'
+
+        beh_data.loc[row, 'rule'] = rule
             # problem_rows.append(row)
         if rule in beh_data.loc[row, 'chosen']:
             beh_data.loc[row, 'correct'] = int(1)
         # magic number 5 bc running average is 5
         beh_data.loc[row, f'running_avg_{running_avg}'] = np.mean(
             beh_data.loc[np.arange(max(row - running_avg + 1, 0), row + 1), 'correct'])
-        beh_data.loc[row, 'rule'] = rule
 
     # # Hopefully irrelevant
     # # The rule S can mean two separate rules. So we'll check for this.
