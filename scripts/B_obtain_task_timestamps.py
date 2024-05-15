@@ -1,4 +1,5 @@
 from intracranial_ephys_utils.load_data import read_task_ncs
+from intracranial_ephys_utils.plot_data import diagnostic_time_series_plot
 import os
 import numpy as np
 from matplotlib import pyplot as plt
@@ -6,43 +7,7 @@ from pathlib import Path
 import pandas as pd
 from behavior_analysis import get_wcst_rt
 
-
-def diagnostic_time_series_plot(lfp_signal, freq, output_folder=None, electrode_name='', total_time=None,
-                                subject=None, session=None):
-    """
-    This script serves to plot basically any LFP signal for sanity check, but without interactivity like
-    the dynamic script.
-    :param lfp_signal: array. This should 1Xn_timepoints
-    :param freq: (float)
-    :param output_folder: (Path). Optional. Useful for saving snippers
-    :param electrode_name: (string). Optional. Useful for writing title to plot
-    :param total_time: (string). Optional. Useful for plotting subsets of experiment
-    :param subject: (string). Subject identifier.
-    :param session: (string). Session identifier.
-    :return:
-    """
-    fig2, ax = plt.subplots(4, 1)
-    ax[0].plot(np.linspace(0, 1, num=int(freq)), lfp_signal[0:int(freq)])
-    midlevel_time = 30
-    ax[1].plot(np.linspace(0, midlevel_time, num=int(freq*midlevel_time)), lfp_signal[0:int(midlevel_time*freq)])
-    sec_in_minute = 60
-    ax[2].plot(np.linspace(0, lfp_signal.shape[0]/freq/sec_in_minute, lfp_signal.shape[0]), lfp_signal)
-    ax[3].plot(np.linspace(midlevel_time, 0, num=int(freq*midlevel_time)), lfp_signal[-int(midlevel_time*freq):])
-    for axis in ax:
-        axis.set_ylabel('Voltage (uV)')
-        axis.set_xlabel('Time (s)')
-    ax[2].set_xlabel('Time (m)')
-    if total_time is not None:
-        ax[2].set_xlim([0, total_time])
-    if electrode_name != '':
-        plt.suptitle(f'Time Courses for {electrode_name}')
-    if output_folder is not None:
-        plt.savefig(os.path.join(output_folder, f'{subject}_{session}.png'))
-        plt.close()
-    else:
-        plt.tight_layout()
-        plt.show()
-
+# Pretty much everything here hasn't been tested yet, be advised
 
 def ph_bhv_alignment(ph_signal, trials, rt, sample_rate, cutoff_fraction=4, task_time=None):
     '''
@@ -189,6 +154,48 @@ def check_events(ph_signal, sample_rate, ph_onset_trials, tstart=None, tend=None
     plt.show()
 
 
+def get_ph_timestamps(subject, session, task):
+    folder_name = Path(f'{os.pardir}/data/{subject}/{session}/raw')
+    event_file = folder_name.parents[0] / f"{subject}_{session}_{task}_events.csv"
+    ph_file_path = 'photo1.ncs'
+    split_tup = os.path.splitext(ph_file_path)
+    filename = split_tup[0]
+    ph_signal, sample_rate, _, timestamps = read_task_ncs(folder_name, ph_file_path, task=task,
+                                                 events_file=event_file)
+
+    diagnostic_time_series_plot(ph_signal, sample_rate, electrode_name=filename)
+
+    bhv_file_path = folder_name.parents[0] / "behavior" / f"sub-{subject}-{session}-beh.csv"
+    # Now to get ground truth data for wisconsin card sorting
+    trials, rt = get_wcst_rt(bhv_file_path)
+
+    # Use both behavioral data and photodiode data to do alignment
+    # remember that task_start_segment_time is the baseline for the array
+    event_lengths_pruned, ph_onset_trials, ph_offset_button_press, padded_rts = ph_bhv_alignment(ph_signal, trials,
+                                                                                                 rt, sample_rate,
+                                                                                                 cutoff_fraction=2)
+    check_events(ph_signal, sample_rate, ph_onset_trials)
+
+    photodiode_behavior_alignment_plot(padded_rts, event_lengths_pruned, subject=subject, session=session)
+
+    # Okay now with our photodiode signal in tow, we'll get a histogram
+    plt.hist(ph_signal)
+    plt.show()
+
+    # Next we save our exported photodiode detected events, matched with wcst rts
+    # Importantly, we're adding here an offset, we detected events using the number of samples since the start of the
+    # annotation provided by previous script,
+    # but when we look at neural timestamps, they are in machine time. We can subtract from machine
+    # time at start of that recording but we also need to take care of additional offset due to the annotation itself.
+    beh_time_data = np.array([ph_onset_trials+timestamps[0]*sample_rate,
+                              ph_offset_button_press+timestamps[0]*sample_rate,
+                              padded_rts, ph_onset_trials/sample_rate+timestamps[0],
+                              ph_offset_button_press/sample_rate+timestamps[0]])
+    beh_df = pd.DataFrame(beh_time_data.T, columns=['Onset (samples)', 'Feedback (samples)', 'RTs', 'Onset (seconds)',
+                                                    'Feedback (seconds)'])
+    beh_df.to_csv(folder_name.parents[0] / "behavior" / f"sub-{subject}-{session}-ph_timestamps.csv")
+    return None
+
 def main():
     test_subject = 'IR87'
     test_session = 'sess-4'
@@ -232,6 +239,7 @@ def main():
     beh_df = pd.DataFrame(beh_time_data.T, columns=['Onset (samples)', 'Feedback (samples)', 'RTs', 'Onset (seconds)',
                                                     'Feedback (seconds)'])
     beh_df.to_csv(folder_name.parents[0] / "behavior" / f"sub-{test_subject}-{test_session}-ph_timestamps.csv")
+    get_ph_timestamps(test_subject)
 
 
 if __name__ == "__main__":
