@@ -12,6 +12,8 @@ dependencies:
   - numba
   - openpyxl
   - python-neo
+  - statsmodels
+  - python-neo
   - pip
   - pip:
       - mne
@@ -19,4 +21,5 @@ dependencies:
       - av
       - ephyviewer
       - BCI2kReader
+
 prefix: /home/eduardo/anaconda3/envs/wcst_human
