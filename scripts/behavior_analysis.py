@@ -4,11 +4,44 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-def get_wcst_rt(file_name):
+
+def get_wcst_data(file_name):
+    """
+    Fast loader, alternative to heavier process_wcst_behavior function
+    :param file_name:
+    :return:
+    """
     beh_data = pd.read_csv(file_name)
-    trials = beh_data['trials_thisIndex']
+
+    if 'key_resp_2_keys' in beh_data.columns:
+        beh_data = beh_data.rename(columns={'key_resp_2_keys': 'key press',
+                                            'key_resp_2_rt': 'rt',
+                                            'key_resp_3_keys': 'off trial key press',
+                                            'key_resp_3_rt': 'off trial rt',
+                                            'trials_thisRepN': 'trials.thisRepN',
+                                            'trials_thisN': 'trials.thisN',
+                                            'trials_thisIndex': 'trials.thisIndex',
+                                            'trials_thisTrialN': 'trials.thisTrialN'})
+    else:
+        # If WCST version 6, throw warning and rename columns
+        print(f'WCST version 6')
+        beh_data = beh_data.rename(columns={'key_resp_2.keys': 'key press',
+                                            'key_resp_2.rt': 'rt',
+                                            'key_resp_3.keys': 'off trial key press',
+                                            'key_resp_3.rt': 'off trial rt',
+                                            'shift_type': 'rule_shift',
+                                            'Unnamed: 21': 'nothing'})
+
+
+    # Drop columns I don't care about
+    beh_data = beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
+                              'trials.thisIndex', 'off trial key press', 'off trial rt'], axis=1)
+
+    beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
+
+    trials = beh_data['trial']
     rt = beh_data['response_time']
-    return trials, rt
+    return trials, rt, beh_data
 
 
 def process_wcst_behavior(file_name, running_avg=5):
@@ -28,37 +61,11 @@ def process_wcst_behavior(file_name, running_avg=5):
     :return: incorrect_eq: tuple
         whether the rule or shift determined on our side, matches the one in the csv file.
     """
-    beh_data = pd.read_csv(file_name)
-    subject = beh_data['participant'][0]
-    session = beh_data['session'][0]
-
-    if 'key_resp_2_keys' in beh_data.columns:
-        beh_data = beh_data.rename(columns={'key_resp_2_keys': 'key press',
-                                            'key_resp_2_rt': 'rt',
-                                            'key_resp_3_keys': 'off trial key press',
-                                            'key_resp_3_rt': 'off trial rt',
-                                            'trials_thisRepN': 'trials.thisRepN',
-                                            'trials_thisN': 'trials.thisN',
-                                            'trials_thisIndex': 'trials.thisIndex',
-                                            'trials_thisTrialN': 'trials.thisTrialN'})
-    else:
-        # If WCST version 6, throw warning and rename columns
-        print(f'Check that {subject} and {session} were run in the same experiment version as others')
-        beh_data = beh_data.rename(columns={'key_resp_2.keys': 'key press',
-                                            'key_resp_2.rt': 'rt',
-                                            'key_resp_3.keys': 'off trial key press',
-                                            'key_resp_3.rt': 'off trial rt',
-                                            'shift_type': 'rule_shift',
-                                            'Unnamed: 21': 'nothing'})
+    _, _, beh_data = get_wcst_data(file_name)
     # These tell us how the key pressed maps to the image locations
     keys_img_location_dict = {'left': 4, 'down': 2, 'right': 3, 'up': 1,
                               'None': 'None'}
 
-    # Drop columns I don't care about
-    beh_data = beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
-                              'trials.thisIndex', 'off trial key press', 'off trial rt'], axis=1)
-
-    beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
     # Rule is just a letter, but I can match it to rule dimension if it's correct,
     # note though that 's' was coded twice, so I have to double back with these...
     # Note that these 's's may still be wrong if for some reason the rule changes from 's' to 's'.
