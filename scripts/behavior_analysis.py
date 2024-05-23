@@ -38,7 +38,7 @@ def get_wcst_data(file_name):
                               'trials.thisIndex', 'off trial key press', 'off trial rt'], axis=1)
 
     beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
-
+    beh_data.dropna(subset=['trial'], inplace=True)
     trials = beh_data['trial']
     rt = beh_data['response_time']
     return trials, rt, beh_data

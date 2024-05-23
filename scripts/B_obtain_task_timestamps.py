@@ -34,7 +34,6 @@ def ph_bhv_alignment(ph_signal, trials, rt, sample_rate, cutoff_fraction=2, task
     offset_events = np.where(np.diff(ph_signal_bin) < 0)[0]
     print(onset_events.shape)
     print(offset_events.shape)
-    ideal_trial_number = np.arange(max(trials))
     min_rt = np.nanmin(rt)  # min but ignore faulty key press (logged as nan)
 
     # We might start with the photodiode on!
