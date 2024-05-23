@@ -80,6 +80,7 @@ def process_wcst_behavior(file_name, running_avg=5):
 
     # Here we're going to process the data itself
     problem_rows = []
+    beh_data.reset_index(inplace=True)
     beh_data['correct'] = int(0)
     beh_data['chosen'] = ''
     beh_data['rule_shift_bool'] = ''

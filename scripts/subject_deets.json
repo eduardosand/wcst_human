@@ -24,7 +24,17 @@
 "IR95": {
         "subjectid": "SBJ02",
         "sess-3": {
-                "photodiode_processed": "False",
-                }
+                "photodiode_quality": "True",
+                "behavior_uploaded": "True",
+                "single_unit_uploaded": "True",
+                "photodiode_timestamps_acquired": "True",
+                },
+        "sess-2": {
+                "photodiode_quality": "True",
+                "photodiode_uploaded": "True",
+                "behavior_uploaded": "True",
+                "single_unit_uplaoded": "True",
+
+        }
         }
 }

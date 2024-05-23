@@ -11,7 +11,7 @@ import os
 # subject = 'IR87'
 # session = 'sess-4'
 subject = 'IR95'
-session = 'sess-2'
+session = 'sess-3'
 task = 'wcst'
 sort_directory = Path(f"{os.pardir}/data/{subject}/{session}/")
 
