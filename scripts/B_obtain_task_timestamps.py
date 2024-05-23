@@ -112,12 +112,16 @@ def photodiode_behavior_alignment_plot(padded_rts, event_lengths_pruned, output_
     :param session:
     :return:
     """
-    plt.plot(padded_rts, label='response time')
-    plt.plot(event_lengths_pruned, linestyle='dashed', alpha=0.7, label='photodiode event time')
-    plt.xlabel('Trial Number')
-    plt.ylabel('Event Length (s)')
-    plt.title(f'{subject} - session {session} \n alignment with behavior')
-    plt.legend()
+    fig, ax = plt.subplots(1, 2, figsize=(15, 10))
+    ax[0].plot(padded_rts, label='response time')
+    ax[0].plot(event_lengths_pruned, linestyle='dashed', alpha=0.7, label='photodiode event time')
+    ax[0].set_xlabel('Trial Number')
+    ax[0].set_ylabel('Event Length (s)')
+    ax[0].set_title(f'{subject} - session {session} \n alignment with behavior')
+    ax[0].legend()
+
+    ax[1].hist(event_lengths_pruned-padded_rts)
+    ax[1].set_title('Difference between event lengths and recorded rts')
     if output_folder is not None:
         plt.savefig(os.path.join(output_folder, f'{subject}_{session}.png'))
         plt.close()
@@ -144,16 +148,17 @@ def check_events(ph_signal, sample_rate, ph_onset_trials, tstart=None, tend=None
     plt.plot(ph_signal[tstart: tend])
     plt.vlines(ph_onset_trials[(ph_onset_trials > tstart) & (ph_onset_trials < tend)]-tstart,
                max(ph_signal_pruned), min(ph_signal_pruned), 'red')
+    plt.title('Photodiode event detection check')
     plt.show()
 
 
 def get_ph_timestamps(subject, session, task):
     """
-    This script will get the trial timestamps using the photodiode signal.
-    :param subject:
-    :param session:
-    :param task:
-    :return:
+    This script will get trial timestamps in terms of samples, and seconds from start of recording and export them.
+    :param subject: (string) The identifier for the participant who completed the task
+    :param session: (string) The session ID for participant who completed the task
+    :param task: (string) The task ID for participant who completed the task
+    :return: None
     """
     data_directory = Path(f'{os.pardir}/data/{subject}/{session}/raw')
     event_file = data_directory.parents[0] / f"{subject}_{session}_{task}_events.csv"
@@ -165,13 +170,19 @@ def get_ph_timestamps(subject, session, task):
     assert len(ph_files) == 1
     ph_filename = ph_files[0]
 
-    split_tup = os.path.splitext(ph_filename)
-    filename = split_tup[0]
     ph_signal, sample_rate, _, timestamps = read_task_ncs(data_directory, ph_filename, task=task,
                                                           events_file=event_file)
+
+
+    # Okay now with our photodiode signal in tow, we'll get a histogram
+    plt.hist(ph_signal)
+    plt.title(f'Photodiode signal distribution for {subject} {session} during {task}')
+    plt.show()
+
     bhv_directory = data_directory.parents[0] / Path("behavior")
     bhv_files_list = os.listdir(bhv_directory)
-    bhv_files = [file_path for file_path in bhv_files_list if file_path.endswith('.csv') and file_path.startswith(f'{subject}')]
+    bhv_files = [file_path for file_path in bhv_files_list if file_path.endswith('.csv') and
+                 file_path.startswith(f'{subject}')]
 
     # bhv_file_path = data_directory.parents[0] / "behavior" / f"sub-{subject}-{session}-beh.csv"
     bhv_file_path = bhv_directory / bhv_files[0]
@@ -187,10 +198,6 @@ def get_ph_timestamps(subject, session, task):
 
     photodiode_behavior_alignment_plot(padded_rts, event_lengths_pruned, subject=subject, session=session)
 
-    # Okay now with our photodiode signal in tow, we'll get a histogram
-    plt.hist(ph_signal)
-    plt.show()
-
     # Next we save our exported photodiode detected events, matched with wcst rts
     # Importantly, we're adding here an offset, we detected events using the number of samples since the start of the
     # annotation provided by previous script,
@@ -200,55 +207,13 @@ def get_ph_timestamps(subject, session, task):
                               ph_offset_button_press+timestamps[0]*sample_rate,
                               padded_rts, ph_onset_trials/sample_rate+timestamps[0],
                               ph_offset_button_press/sample_rate+timestamps[0]])
-    beh_df = pd.DataFrame(beh_time_data.T, columns=['Onset (samples)', 'Feedback (samples)', 'RTs', 'Onset (seconds)',
-                                                    'Feedback (seconds)'])
+    beh_df = pd.DataFrame(beh_time_data.T, columns=['Onset (samples)', 'Feedback (samples)', 'RTs (from computer)',
+                                                    'Onset (seconds)', 'Feedback (seconds)'])
     beh_df.to_csv(data_directory.parents[0] / "behavior" / f"sub-{subject}-{session}-ph_timestamps.csv")
     return None
 
-def main():
-    # test_subject = 'IR87'
-    # test_session = 'sess-4'
-    # task = 'wcst'
-    # folder_name = Path(f'{os.pardir}/data/{test_subject}/{test_session}/raw')
-    # event_file = folder_name.parents[0] / f"{test_subject}_{test_session}_{task}_events.csv"
-    # ph_file_path = 'photo1.ncs'
-    # split_tup = os.path.splitext(ph_file_path)
-    # filename = split_tup[0]
-    # ph_signal, sample_rate, _, timestamps = read_task_ncs(folder_name, ph_file_path, task=task,
-    #                                              events_file=event_file)
-    #
-    # diagnostic_time_series_plot(ph_signal, sample_rate, electrode_name=filename)
-    #
-    # bhv_file_path = folder_name.parents[0] / "behavior" / f"sub-{test_subject}-{test_session}-beh.csv"
-    # # Now to get ground truth data for wisconsin card sorting
-    # trials, rt = get_wcst_data(bhv_file_path)
-    #
-    # # Use both behavioral data and photodiode data to do alignment
-    # # remember that task_start_segment_time is the baseline for the array
-    # event_lengths_pruned, ph_onset_trials, ph_offset_button_press, padded_rts = ph_bhv_alignment(ph_signal, trials,
-    #                                                                                              rt, sample_rate,
-    #                                                                                              cutoff_fraction=2)
-    # check_events(ph_signal, sample_rate, ph_onset_trials)
-    #
-    # photodiode_behavior_alignment_plot(padded_rts, event_lengths_pruned, subject=test_subject, session=test_session)
-    #
-    # # Okay now with our photodiode signal in tow, we'll get a histogram
-    # plt.hist(ph_signal)
-    # plt.show()
-    #
-    # # Next we save our exported photodiode detected events, matched with wcst rts
-    # # Importantly, we're adding here an offset, we detected events using the number of samples since the start of the
-    # # annotation provided by previous script,
-    # # but when we look at neural timestamps, they are in machine time. We can subtract from machine
-    # # time at start of that recording but we also need to take care of additional offset due to the annotation itself.
-    # beh_time_data = np.array([ph_onset_trials+timestamps[0]*sample_rate,
-    #                           ph_offset_button_press+timestamps[0]*sample_rate,
-    #                           padded_rts, ph_onset_trials/sample_rate+timestamps[0],
-    #                           ph_offset_button_press/sample_rate+timestamps[0]])
-    # beh_df = pd.DataFrame(beh_time_data.T, columns=['Onset (samples)', 'Feedback (samples)', 'RTs', 'Onset (seconds)',
-    #                                                 'Feedback (seconds)'])
-    # beh_df.to_csv(folder_name.parents[0] / "behavior" / f"sub-{test_subject}-{test_session}-ph_timestamps.csv")
 
+def main():
     test_subject = 'IR95'
     test_session = 'sess-3'
     task = 'wcst'
