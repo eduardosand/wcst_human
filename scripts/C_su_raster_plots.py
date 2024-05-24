@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from scipy.io import loadmat
-from intracranial_ephys_utils.load_data import read_file
+from intracranial_ephys_utils.load_data import read_file, get_file_info
 from behavior_analysis import process_wcst_behavior
 from pathlib import Path
 import pandas as pd
@@ -124,25 +124,15 @@ subject = 'IR95'
 timestamps_file = f"sub-{subject}-{session}-ph_timestamps.csv"
 
 data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
-all_files_list = os.listdir(data_directory / Path('raw'))
-ph_files = [file_path for file_path in all_files_list if file_path.endswith('.ncs') and
-            file_path.startswith('photo1')]
-assert len(ph_files) == 1
-ph_filename = ph_files[0]
+ph_file_path = get_file_info(data_directory / Path('raw'), 'photo1', '.ncs')
+
 
 running_avg = 5
 bhv_directory = data_directory / Path("behavior")
-bhv_files_list = os.listdir(bhv_directory)
-bhv_files = [file_path for file_path in bhv_files_list if file_path.endswith('.csv') and
-                 file_path.startswith(f'{subject}')]
-
-    # bhv_file_path = data_directory.parents[0] / "behavior" / f"sub-{subject}-{session}-beh.csv"
-bhv_file_path = bhv_directory / bhv_files[0]
+bhv_file_path = get_file_info(bhv_directory, f'{subject}', '.csv')
 
 beh_data, rule_shifts_ind, _ = process_wcst_behavior(bhv_file_path,
                                                      running_avg=running_avg)
-# beh_data, rule_shifts_ind, _ = process_wcst_behavior(beh_directory / f"sub-{subject}-{session}-beh.csv",
-#                                                      running_avg=running_avg)
 
 
 beh_data.set_index(['trial'], inplace=True)
@@ -153,7 +143,7 @@ onset_times = beh_timestamps['Onset (seconds)']
 matplotlib.rcParams['font.size'] = 12.0
 
 # global t-start
-reader = read_file(data_directory / Path('raw') / ph_filename)
+reader = read_file(ph_file_path)
 reader.parse_header()
 start_record = reader.global_t_start
 number_spikes = []
