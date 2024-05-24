@@ -25,7 +25,7 @@ def sort_spike_trains(spike_trains, beh_conditions):
     return spike_trains_sorted, beh_conditions_sorted, change_indices
 
 
-def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, line_length=2):
+def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, line_length=2.5, line_width=1.):
     """
     Ideally this function takes in an axis and some spike train data, along with behavioral labels
     to generate a plot that colors the spike trains by condition and then plots them
@@ -37,7 +37,7 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, line_
     :return:
     """
     spike_trains_sorted, beh_conditions_sorted, change_indices = sort_spike_trains(spike_trains, beh_conditions)
-    ax.eventplot(spike_trains_sorted, linelengths=line_length, colors=list(map(color_dict.get, beh_conditions_sorted)))
+    ax.eventplot(spike_trains_sorted, linelengths=line_length, linewidths=line_width, colors=list(map(color_dict.get, beh_conditions_sorted)))
     ax.axvline(0, linestyle='--', c='black')
 
 
@@ -73,8 +73,8 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
             # print(timestep)
             # print(timestep+binsize)
             # print(np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep))))
-            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize) &
-                                                            (all_times >= timestep)))[1]/num_trials
+            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize/2) &
+                                                            (all_times >= timestep-binsize/2)))[1]/num_trials
             # print(spike_counts[0, ind])
     for cond_ind in range(num_conditions):
         if cond_ind == 0:
@@ -87,6 +87,8 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
             label_val = beh_conditions_sorted[change_indices[cond_ind-1]]
             ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
     ax.axvline(0, linestyle='--', c='black')
+    ymax = max(np.max(spike_counts[:, :]), 0.1)
+    ax.set_ylim([0, ymax])
 
 
 def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1.5):
@@ -113,24 +115,45 @@ def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1
     return trial_wise_spikes
 
 
-session = 'sess-4'
-subject = 'IR87'
-data_directory = Path(f"{os.pardir}/data/{subject}/{session}/")
-ph_file_path = Path("raw/Events.nev")
-beh_directory = data_directory / "behavior"
+# session = 'sess-4'
+# subject = 'IR87'
+
+
+session = 'sess-3'
+subject = 'IR95'
+timestamps_file = f"sub-{subject}-{session}-ph_timestamps.csv"
+
+data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
+all_files_list = os.listdir(data_directory / Path('raw'))
+ph_files = [file_path for file_path in all_files_list if file_path.endswith('.ncs') and
+            file_path.startswith('photo1')]
+assert len(ph_files) == 1
+ph_filename = ph_files[0]
+
 running_avg = 5
-beh_data, rule_shifts_ind, _ = process_wcst_behavior(beh_directory / f"sub-{subject}-{session}-beh.csv",
+bhv_directory = data_directory / Path("behavior")
+bhv_files_list = os.listdir(bhv_directory)
+bhv_files = [file_path for file_path in bhv_files_list if file_path.endswith('.csv') and
+                 file_path.startswith(f'{subject}')]
+
+    # bhv_file_path = data_directory.parents[0] / "behavior" / f"sub-{subject}-{session}-beh.csv"
+bhv_file_path = bhv_directory / bhv_files[0]
+
+beh_data, rule_shifts_ind, _ = process_wcst_behavior(bhv_file_path,
                                                      running_avg=running_avg)
+# beh_data, rule_shifts_ind, _ = process_wcst_behavior(beh_directory / f"sub-{subject}-{session}-beh.csv",
+#                                                      running_avg=running_avg)
+
+
 beh_data.set_index(['trial'], inplace=True)
-timestamps_file = "sub-IR87-sess-4-ph_timestamps.csv"
-beh_timestamps = pd.read_csv(beh_directory / timestamps_file)
+beh_timestamps = pd.read_csv(bhv_directory / timestamps_file)
 feedback_times = beh_timestamps['Feedback (seconds)']
 onset_times = beh_timestamps['Onset (seconds)']
 
 matplotlib.rcParams['font.size'] = 12.0
 
 # global t-start
-reader = read_file(data_directory / ph_file_path)
+reader = read_file(data_directory / Path('raw') / ph_filename)
 reader.parse_header()
 start_record = reader.global_t_start
 number_spikes = []
@@ -212,7 +235,7 @@ for file in all_su_files:
                 axs[i*2+1, 2].axis('off')  # Hide the axis
                 axs[i*2, 2].axis('off')  # Hide the axis
                 axs[i*2, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
-                                 ncol=1)  # Adjust the position as needed
+                                   ncol=1)  # Adjust the position as needed
                 plt.tight_layout()
             # axs[0].set_ylabel("Trial Number")
 
