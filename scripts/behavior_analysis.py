@@ -35,7 +35,7 @@ def get_wcst_data(file_name):
 
     # Drop columns I don't care about
     beh_data = beh_data.drop(['date', 'frameRate', 'trials.thisRepN', 'trials.thisN',
-                              'trials.thisIndex', 'off trial key press', 'off trial rt'], axis=1)
+                              'trials.thisIndex', 'off trial key press', 'off trial rt', 'rt'], axis=1)
 
     beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
     beh_data.dropna(subset=['trial'], inplace=True)
