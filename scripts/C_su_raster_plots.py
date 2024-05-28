@@ -41,6 +41,45 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, line_
     ax.axvline(0, linestyle='--', c='black')
 
 
+def get_spike_rate_curves(spike_trains, beh_conditions, tmin=-1., tmax=1.5, step=0.050, binsize=0.1, mode='average'):
+    """
+    Straightforward here. Trying to get full spike trains by either averaging in bins, or trial-wise spikes
+    :param spike_trains:
+    :param beh_conditions:
+    :param tmin:
+    :param tmax:
+    :param step:
+    :param binsize:
+    :param mode:
+    :return:
+    """
+    spike_trains_sorted, beh_conditions_sorted, change_indices_og = sort_spike_trains(spike_trains, beh_conditions)
+    # next, count spikes in binsize ms bins, stepping by step ms
+    trial_time = np.arange(tmin, tmax + step, step)
+    if mode == 'average':
+        num_conditions = len(np.unique(beh_conditions))
+        change_indices = change_indices_og
+    else:
+        # basically just make change conditions, every single trial, to do single trial estimates (no averaging)
+        num_conditions = len(beh_conditions)
+        change_indices = np.arange(1, len(beh_conditions_sorted))
+    spike_counts = np.zeros((num_conditions, trial_time.shape[0]))
+    for cond_ind in range(num_conditions):
+        for ind, timestep in enumerate(trial_time):
+            if cond_ind == 0:
+                all_times = np.concatenate(spike_trains_sorted[0:change_indices[0]])
+                num_trials = change_indices[0]
+            elif cond_ind == num_conditions - 1:
+                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind - 1]:])
+                num_trials = len(spike_trains_sorted) - change_indices[cond_ind - 1]
+            else:
+                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind - 1]:change_indices[cond_ind]])
+                num_trials = change_indices[cond_ind] - change_indices[cond_ind - 1]
+            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep + binsize / 2) &
+                                                            (all_times >= timestep - binsize / 2)))[1] / num_trials
+    return spike_counts, beh_conditions_sorted, change_indices_og
+
+
 def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
     """
     Plot spike counts over time per conditions, using 100 ms bins and stepping by 50 ms to help with smoothing.
@@ -53,45 +92,27 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
     :return:
     """
     num_conditions = len(np.unique(beh_conditions))
-    spike_trains_sorted, beh_conditions_sorted, change_indices = sort_spike_trains(spike_trains, beh_conditions)
+    spike_counts_sorted, beh_conditions_sorted, change_indices = get_spike_rate_curves(spike_trains, beh_conditions,
+                                                                                       tmin, tmax)
     # next, count spikes in 100 ms bins, stepping by 50 ms
     step = 0.050
     trial_time = np.arange(tmin, tmax+step, step)
-    spike_counts = np.zeros((num_conditions, trial_time.shape[0]))
-    binsize = 0.1
-    for cond_ind in range(num_conditions):
-        for ind, timestep in enumerate(trial_time):
-            if cond_ind == 0:
-                all_times = np.concatenate(spike_trains_sorted[0:change_indices[0]])
-                num_trials = change_indices[0]
-            elif cond_ind == num_conditions-1:
-                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:])
-                num_trials = len(spike_trains_sorted)-change_indices[cond_ind-1]
-            else:
-                all_times = np.concatenate(spike_trains_sorted[change_indices[cond_ind-1]:change_indices[cond_ind]])
-                num_trials = change_indices[cond_ind] - change_indices[cond_ind-1]
-            # print(timestep)
-            # print(timestep+binsize)
-            # print(np.shape(np.where((all_times < timestep+binsize) & (all_times >= timestep))))
-            spike_counts[cond_ind, ind] = np.shape(np.where((all_times < timestep+binsize/2) &
-                                                            (all_times >= timestep-binsize/2)))[1]/num_trials
-            # print(spike_counts[0, ind])
     for cond_ind in range(num_conditions):
         if cond_ind == 0:
             label_val = beh_conditions_sorted[0]
-            ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
+            ax.plot(trial_time, spike_counts_sorted[cond_ind, :], color=color_dict[label_val], label=label_val)
         elif cond_ind == num_conditions-1:
             label_val = beh_conditions_sorted[-1]
-            ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
+            ax.plot(trial_time, spike_counts_sorted[cond_ind, :], color=color_dict[label_val], label=label_val)
         else:
             label_val = beh_conditions_sorted[change_indices[cond_ind-1]]
-            ax.plot(trial_time, spike_counts[cond_ind, :], color=color_dict[label_val], label=label_val)
+            ax.plot(trial_time, spike_counts_sorted[cond_ind, :], color=color_dict[label_val], label=label_val)
     ax.axvline(0, linestyle='--', c='black')
-    ymax = max(np.max(spike_counts[:, :]), 0.1)
+    ymax = max(np.max(spike_counts_sorted[:, :]), 0.1)
     ax.set_ylim([0, ymax])
 
 
-def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1.5):
+def get_trial_wise_times(su_timestamps, trial_times, tmin=-0.5, tmax=1.5):
     """
     This function converts spike times in original timing to trial locked spike times using both
     timestamps, and behavioral data to check for valid trial.
@@ -105,133 +126,130 @@ def get_trial_wise_times(su_timestamps, trial_times, beh_data, tmin=-0.5, tmax=1
     # Plot response in spikes of this one neuron relative to each feedback event
     trial_wise_spikes = []
     for trial_ind, trial_time in enumerate(trial_times):
-        if trial_ind in list(beh_data.index):
-            # Plot the response in spikes of this one neuron to first feedback event
-            single_trial_spikes = (su_timestamps - trial_time)
-            # select within bounds of analysis window (check for  both conditions)
-            single_trial_spikes = single_trial_spikes[
+        # if trial_ind in list(beh_data.index):
+        # Plot the response in spikes of this one neuron to first feedback event
+        single_trial_spikes = (su_timestamps - trial_time)
+        # select within bounds of analysis window (check for  both conditions)
+        single_trial_spikes = single_trial_spikes[
                     ((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
-            trial_wise_spikes.append(single_trial_spikes)
+        trial_wise_spikes.append(single_trial_spikes)
     return trial_wise_spikes
 
 
 # session = 'sess-4'
 # subject = 'IR87'
 
+# TODOlater Turn the below into a reasonable function, for now just make it the main
+def main():
+    session = 'sess-3'
+    subject = 'IR95'
+    timestamps_file = f"sub-{subject}-{session}-ph_timestamps.csv"
 
-session = 'sess-3'
-subject = 'IR95'
-timestamps_file = f"sub-{subject}-{session}-ph_timestamps.csv"
-
-data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
-ph_file_path = get_file_info(data_directory / Path('raw'), 'photo1', '.ncs')
-
-
-running_avg = 5
-bhv_directory = data_directory / Path("behavior")
-bhv_file_path = get_file_info(bhv_directory, f'{subject}', '.csv')
-
-beh_data, rule_shifts_ind, _ = process_wcst_behavior(bhv_file_path,
-                                                     running_avg=running_avg)
+    data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
+    ph_file_path = get_file_info(data_directory / Path('raw'), 'photo1', '.ncs')
 
 
-beh_data.set_index(['trial'], inplace=True)
-beh_timestamps = pd.read_csv(bhv_directory / timestamps_file)
-feedback_times = beh_timestamps['Feedback (seconds)']
-onset_times = beh_timestamps['Onset (seconds)']
+    running_avg = 5
+    bhv_directory = data_directory / Path("behavior")
+    bhv_file_path = get_file_info(bhv_directory, f'{subject}', '.csv')
 
-matplotlib.rcParams['font.size'] = 12.0
+    beh_data, rule_shifts_ind, _ = process_wcst_behavior(bhv_file_path,
+                                                         running_avg=running_avg)
 
-# global t-start
-reader = read_file(ph_file_path)
-reader.parse_header()
-start_record = reader.global_t_start
-number_spikes = []
-curr_neuron = 0
 
-su_data_dir = data_directory / "sorted/sort/final"
-all_su_files = os.listdir(su_data_dir)
-for file in all_su_files:
-    # step 1. Load in one file, and comb through it for neurons
-    microwire_spikes = loadmat(su_data_dir / file)
-    neuron_counts = microwire_spikes['useNegative'][0].shape[0]
-    for neuron_ind in range(neuron_counts):
-        su_cluster_num = microwire_spikes['useNegative'][0][neuron_ind]
+    beh_data.set_index(['trial'], inplace=True)
+    beh_timestamps = pd.read_csv(bhv_directory / timestamps_file)
+    feedback_times = beh_timestamps['Feedback (seconds)']
+    onset_times = beh_timestamps['Onset (seconds)']
 
-        # Note that these timestamps are in microseconds, and according to machine clock
-        microsec_sec_trans = 10**-6
-        su_timestamps = np.array([[microwire_spikes['newTimestampsNegative'][0, i]*microsec_sec_trans-start_record] for i in
-                                  range(microwire_spikes['newTimestampsNegative'].shape[1])
-                                 if microwire_spikes['assignedNegative'][0, i] == su_cluster_num])
+    matplotlib.rcParams['font.size'] = 12.0
 
-        fig, axs = plt.subplots(4, 3, sharey='row', sharex='col', figsize=(6, 6),
-                                gridspec_kw={'width_ratios': [1, 1, 0.4]})
-        trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
-        # Plot response in spikes of this one neuron relative to each onset event
-        tmin_onset = -0.5
-        trial_wise_onset_spikes = get_trial_wise_times(su_timestamps, onset_times, beh_data, tmin=tmin_onset, tmax=1.5)
-        for i in range(int(axs.shape[0]/2)):
-            axs[i * 2, 0].set_ylabel("Spiking")
-            axs[i * 2 + 1, 0].set_ylabel('Spike \n Counts')
-            if i == 0:
-                # With the spikes in tow, we'll begin to sort them according rule dimension first
-                sort_order = sorted(set(beh_data['rule dimension']))
-                if len(sort_order) == 3:
-                    color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
+    # global t-start
+    reader = read_file(ph_file_path)
+    reader.parse_header()
+    start_record = reader.global_t_start
+    number_spikes = []
+    curr_neuron = 0
+
+    su_data_dir = data_directory / "sorted/sort/final"
+    all_su_files = os.listdir(su_data_dir)
+    for file in all_su_files:
+        # step 1. Load in one file, and comb through it for neurons
+        microwire_spikes = loadmat(su_data_dir / file)
+        neuron_counts = microwire_spikes['useNegative'][0].shape[0]
+        for neuron_ind in range(neuron_counts):
+            su_cluster_num = microwire_spikes['useNegative'][0][neuron_ind]
+
+            # Note that these timestamps are in microseconds, and according to machine clock
+            microsec_sec_trans = 10**-6
+            su_timestamps = np.array([[microwire_spikes['newTimestampsNegative'][0, i]*microsec_sec_trans-start_record] for i in
+                                      range(microwire_spikes['newTimestampsNegative'].shape[1])
+                                     if microwire_spikes['assignedNegative'][0, i] == su_cluster_num])
+
+            fig, axs = plt.subplots(4, 3, sharey='row', sharex='col', figsize=(6, 6),
+                                    gridspec_kw={'width_ratios': [1, 1, 0.4]})
+            trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, tmin=-1., tmax=1.5)
+            # Plot response in spikes of this one neuron relative to each onset event
+            tmin_onset = -0.5
+            trial_wise_onset_spikes = get_trial_wise_times(su_timestamps, onset_times, tmin=tmin_onset, tmax=1.5)
+            for i in range(int(axs.shape[0]/2)):
+                axs[i * 2, 0].set_ylabel("Spiking")
+                axs[i * 2 + 1, 0].set_ylabel('Spike \n Counts')
+                if i == 0:
+                    # With the spikes in tow, we'll begin to sort them according rule dimension first
+                    sort_order = sorted(set(beh_data['rule dimension']))
+                    if len(sort_order) == 3:
+                        color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
+                    else:
+                        color_dict = dict(zip(sort_order, ['purple', 'orange']))
+                    plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
+
+                    plot_spike_rate_curves(axs[i+1, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
+                    axs[i, 0].set_title('Feedback-locked')
+                    plot_neural_spike_trains(axs[i, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict)
+                    plot_spike_rate_curves(axs[i+1, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict,
+                                           tmin=tmin_onset)
+                    axs[i, 1].set_title("Onset-locked")
+                    # Create a summarized legend
+                    custom_legend = [
+                        plt.Line2D([0], [0], color=color_dict[rule], lw=2, label=rule) for rule in sort_order
+                    ]
+
+                    # Add the summarized legend to the plot
+                    # axs[1].legend(handles=custom_legend, loc='upper center')
+                    # Add the summarized legend to the right of the second subplot, but within the figure
+
+                    axs[i+1, 2].axis('off')  # Hide the axis
+                    axs[i, 2].axis('off')  # Hide the axis
+                    axs[i, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
+                                     ncol=1)  # Adjust the position as needed
+                    plt.suptitle(f"Spike plot for cluster number {su_cluster_num}")
+                    plt.tight_layout()
                 else:
-                    color_dict = dict(zip(sort_order, ['purple', 'orange']))
-                plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
+                    sort_order = sorted(set(beh_data['correct']))
+                    if len(sort_order) == 3:
+                        color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
+                    else:
+                        color_dict = dict(zip(sort_order, ['purple', 'orange']))
+                    plot_neural_spike_trains(axs[i*2, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
+                    plot_spike_rate_curves(axs[i*2+1, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
+                    plot_neural_spike_trains(axs[i*2, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict)
+                    plot_spike_rate_curves(axs[i*2+1, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict,
+                                           tmin=tmin_onset)
+                    axs[i*2+1, 0].set_xlabel("Time (s)")
+                    axs[i*2+1, 1].set_xlabel("Time (s)")
+                    # Create a summarized legend
+                    custom_legend = [
+                        plt.Line2D([0], [0], color=color_dict[feedback_dim], lw=2, label=feedback_dim) for
+                        feedback_dim in sort_order
+                    ]
 
-                plot_spike_rate_curves(axs[i+1, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
-                axs[i, 0].set_title('Feedback-locked')
-                plot_neural_spike_trains(axs[i, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict)
-                plot_spike_rate_curves(axs[i+1, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict,
-                                       tmin=tmin_onset)
-                axs[i, 1].set_title("Onset-locked")
-                # Create a summarized legend
-                custom_legend = [
-                    plt.Line2D([0], [0], color=color_dict[rule], lw=2, label=rule) for rule in sort_order
-                ]
+                    axs[i*2+1, 2].axis('off')  # Hide the axis
+                    axs[i*2, 2].axis('off')  # Hide the axis
+                    axs[i*2, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
+                                       ncol=1)  # Adjust the position as needed
+                    plt.tight_layout()
+            plt.show()
 
-                # Add the summarized legend to the plot
-                # axs[1].legend(handles=custom_legend, loc='upper center')
-                # Add the summarized legend to the right of the second subplot, but within the figure
-
-                axs[i+1, 2].axis('off')  # Hide the axis
-                axs[i, 2].axis('off')  # Hide the axis
-                axs[i, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
-                                 ncol=1)  # Adjust the position as needed
-                plt.suptitle(f"Spike plot for cluster number {su_cluster_num}")
-                plt.tight_layout()
-            else:
-                sort_order = sorted(set(beh_data['correct']))
-                if len(sort_order) == 3:
-                    color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
-                else:
-                    color_dict = dict(zip(sort_order, ['purple', 'orange']))
-                plot_neural_spike_trains(axs[i*2, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
-                plot_spike_rate_curves(axs[i*2+1, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
-                plot_neural_spike_trains(axs[i*2, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict)
-                plot_spike_rate_curves(axs[i*2+1, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict,
-                                       tmin=tmin_onset)
-                axs[i*2+1, 0].set_xlabel("Time (s)")
-                axs[i*2+1, 1].set_xlabel("Time (s)")
-                # Create a summarized legend
-                custom_legend = [
-                    plt.Line2D([0], [0], color=color_dict[feedback_dim], lw=2, label=feedback_dim) for
-                    feedback_dim in sort_order
-                ]
-
-                axs[i*2+1, 2].axis('off')  # Hide the axis
-                axs[i*2, 2].axis('off')  # Hide the axis
-                axs[i*2, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
-                                   ncol=1)  # Adjust the position as needed
-                plt.tight_layout()
-            # axs[0].set_ylabel("Trial Number")
-
-
-            # axs.eventplot(su_timestamps.T)
-        plt.show()
-
-
-
+if __name__ == "__main__":
+    main()
