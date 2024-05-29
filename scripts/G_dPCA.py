@@ -10,6 +10,8 @@ import scipy
 import matplotlib.pyplot as plt
 import matplotlib
 import mne
+from dPCA import dPCA
+from sklearn.decomposition import PCA
 
 
 def gaussian_smooth(spike_trains_sorted, sigma, step):
@@ -145,6 +147,133 @@ def plot_signal_avg(organized_data_mean, fs, subject, session, trial_time, feedb
     # plt.tight_layout()
     plt.show()
 
+
+def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, fs, suptitle, feedback_locked=False,
+                         feature_names=[]):
+    """
+    Plotting the dPCA components, and the features they correspond to.
+    :param dpca:
+    :param Z:
+    :param trial_time: (array) This is the x-axis for the plots, should correspond to event-locked time
+    :param features:
+    :param subject:
+    :param session:
+    :param fs:
+    :param suptitle:
+    :param feedback_locked:
+    :param feature_names:
+    :return:
+    """
+    # time_ticks, time_tick_labels = get_ticks(feedback_locked, fs)
+
+    # time = np.arange(n_timepoints)
+
+    plt.figure(figsize=(16, 7))
+    plt.subplot(131)
+
+    # The underlying thing here is that Z should have the shape n_components * n_features_1 * ... * n_features_n * n_timepoints
+    # One hack is to just check for the length of the shape
+    n_features = len(Z['t'].shape) - 2
+    if n_features > 1:
+
+        n_features_1, n_features_2 = features.shape
+        inv_feature_one_dict = {}
+        inv_feature_key_values = [(ind, val[:-1]) for ind, val in enumerate(features[:, 0])]
+        inv_feature_one_dict.update(inv_feature_key_values)
+
+        inv_feature_two_dict = {}
+        inv_feature_key_values = [(ind, val[-1]) for ind, val in enumerate(features[0, :])]
+        inv_feature_two_dict.update(inv_feature_key_values)
+        for f in range(n_features_1):
+            for r in range(n_features_2):
+                plt.plot(trial_time, Z['t'][0, f, r], label=inv_feature_one_dict[f]+inv_feature_one_dict[r])
+    else:
+        inv_rule_dim_dict = {}
+        inv_feature_key_values = [(ind, val) for ind, val in enumerate(features)]
+        inv_rule_dim_dict.update(inv_feature_key_values)
+        for s in range(len(features)):
+            plt.plot(trial_time, Z['t'][0, s], label=inv_rule_dim_dict[s])
+
+    plt.title(f'1st time component \n explained variance: {dpca.explained_variance_ratio_["t"][0]:.2%}')
+    # plt.xticks(time_ticks, time_tick_labels)
+    plt.xlabel('Time (s)')
+    plt.legend()
+    plt.subplot(132)
+    if n_features > 1:
+
+        n_features_1, n_features_2 = features.shape
+        inv_feature_one_dict = {}
+        inv_feature_key_values = [(ind, val[:-1]) for ind, val in enumerate(features[:, 0])]
+        inv_feature_one_dict.update(inv_feature_key_values)
+
+        inv_feature_two_dict = {}
+        inv_feature_key_values = [(ind, val[-1]) for ind, val in enumerate(features[0, :])]
+        inv_feature_two_dict.update(inv_feature_key_values)
+        for f in range(n_features_1):
+            for r in range(n_features_2):
+                plt.plot(trial_time, Z['f'][0, f, r], label=inv_feature_one_dict[f]+inv_feature_two_dict[r])
+        plt.title(f'1st feedback component \n explained variance: {dpca.explained_variance_ratio_["f"][0]:.2%}')
+    else:
+        for s in range(len(features)):
+            plt.plot(trial_time, Z['s'][0, s], label=inv_rule_dim_dict[s])
+        if len(feature_names) == 0:
+            plt.title(f'1st rule component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
+        else:
+            plt.title(f'1st {feature_names[0]} component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
+
+    # plt.xticks(time_ticks, time_tick_labels)
+    plt.xlabel('Time (s)')
+    # pca.explained_variance_ratio_
+    plt.legend()
+    plt.subplot(133)
+
+    if n_features > 1:
+
+        n_features_1, n_features_2 = features.shape
+        inv_feature_one_dict = {}
+        inv_feature_key_values = [(ind, val[:-1]) for ind, val in enumerate(features[:, 0])]
+        inv_feature_one_dict.update(inv_feature_key_values)
+
+        inv_feature_two_dict = {}
+        inv_feature_key_values = [(ind, val[-1]) for ind, val in enumerate(features[0, :])]
+        inv_feature_two_dict.update(inv_feature_key_values)
+        for f in range(n_features_1):
+            for r in range(n_features_2):
+                plt.plot(trial_time, Z['r'][0, f, r], label=inv_feature_one_dict[f] + inv_feature_two_dict[r])
+        plt.title(f'1st rule component \n explained variance: {dpca.explained_variance_ratio_["r"][0]:.2%}')
+    else:
+        for s in range(len(features)):
+            plt.plot(trial_time, Z['st'][0, s])
+        plt.title(f'1st mixed component \n explained variance: {dpca.explained_variance_ratio_["st"][0]:.2%}')
+
+    # plt.xticks(time_ticks, time_tick_labels)
+    plt.xlabel('Time (s)')
+    plt.suptitle(f' Subject {subject} - Session {session} \n {suptitle}')
+    plt.show()
+
+
+def pca_comparison(dpca, organized_data_mean):
+    """
+    My intuition with dPCA is that the components should be similar to normal PCA components but with the added
+    benefit of labels. In this case the cumulative variance explained by PCA and dPCA should be comparable.
+    # This function plots both to allow for this comparison.
+    :param dpca:
+    :param organized_data_mean:
+    :return:
+    """
+    pca = PCA()
+    pca.fit(organized_data_mean.reshape(organized_data_mean.shape[0], -1))
+    fig = plt.figure()
+    dpca_explained_var_ratios = np.array([dpca.explained_variance_ratio_[key] for key in dpca.explained_variance_ratio_.keys()]).flatten()
+    dpca_explained_var_ratios.sort()
+    dpca_explained_var_ratios = np.flip(dpca_explained_var_ratios)
+    plt.plot(np.cumsum(pca.explained_variance_ratio_[0:len(dpca_explained_var_ratios)]), label='PCA')
+    plt.plot(np.cumsum(dpca_explained_var_ratios), label='dPCA')
+    plt.xlabel('Number of components')
+    plt.ylabel('Cumulative variance explained')
+    plt.title('PCA vs. dPCA')
+    plt.legend()
+    plt.show()
 # This script serves to perform a dPCA on the spiking data
 
 # the first step towards that aim is to get my neural data and plot it
@@ -181,11 +310,16 @@ curr_neuron = 0
 su_data_dir = data_directory / "sorted/sort/final"
 all_su_files = os.listdir(su_data_dir)
 
+neuron_count = 0
+for file in all_su_files:
+    data = loadmat(os.path.join(su_data_dir, file))
+    # print(file)
+    # print(data['useNegative'])
+    # print(data['useNegative'].shape)
+    neuron_count += data['useNegative'][0].shape[0]
+
 file = all_su_files[0]
 max_rt = max(beh_data['response_time'])
-# step 1. Load in one file, and comb through it for neurons
-microwire_spikes = loadmat(su_data_dir / file)
-neuron_counts = microwire_spikes['useNegative'][0].shape[0]
 
 # ahead of grabbing neural data, pre-define some things that are true for every neuron
 binsize = 0.01
@@ -199,6 +333,14 @@ n_timepoints = trial_time.shape[0]
 n_electrodes = 2
 neural_data = np.zeros((n_trials, n_electrodes, n_timepoints))
 labels = []
+
+# for file in all_su_files:
+
+    # step 1. Load in one file, and comb through it for neurons
+microwire_spikes = loadmat(su_data_dir / file)
+    # neuron_counts = microwire_spikes['useNegative'][0].shape[0]
+
+
 for neuron_ind in range(neuron_counts):
     su_cluster_num = microwire_spikes['useNegative'][0][neuron_ind]
     labels.append(str(su_cluster_num))
@@ -253,7 +395,18 @@ epochs_object = mne.EpochsArray(neural_data, mne_info)
 
 # might take some time to featurize the objects appropriately
 # baselining is a problem
-organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, beh_conditions_sorted, norm=standardized_data)
+organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, beh_conditions_sorted,
+                                                               norm=standardized_data)
 plot_signal_avg(organized_data_mean, eff_fs, subject, session, trial_time, feedback_locked=True, labels=feedback_dict,
                    extra_string=f'Normalization = {standardized_data}')
+
+dpca = dPCA.dPCA(labels='st', regularizer='auto')
+dpca.protect = ['t']
+Z = dpca.fit_transform(organized_data_mean, organized_data)
+
+pca_comparison(dpca, organized_data_mean)
+suptitle = 'All single units'
+feedback_locked = True
+plot_dPCA_components(dpca, Z, trial_time, feedback_dict, subject, session, eff_fs, suptitle,
+                                    feedback_locked=feedback_locked, feature_names=['feedback'])
 print('huh')
