@@ -122,13 +122,20 @@ def plot_signal_avg(organized_data_mean, fs, subject, session, trial_time, feedb
     # time = np.arange(n_time)
 
     ncols = 2
-    fig, ax = plt.subplots(int(organized_data_mean.shape[0]/ncols), ncols)
+    n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
+    if n_electrodes % 2 == 1:
+        n_plots = n_electrodes + 1
+    else:
+        n_plots = n_electrodes
+    fig, ax = plt.subplots(int(n_plots/ncols), ncols)
     if len(labels) == 0:
         labels = np.arange(n_cond)
     for ind, ax_curr in enumerate(ax.flatten()):
-        for cond in range(organized_data_mean.shape[1]):
+        if ind >= n_electrodes:
+            continue
+        for cond in range(n_cond):
             ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond])
-        if ind in np.arange(organized_data_mean.shape[0]-ncols, organized_data_mean.shape[0]):
+        if ind in np.arange(n_plots-ncols, n_plots):
             ax_curr.set_xlabel('Time (s)')
             ax_curr.set_xticks(time_ticks, time_tick_labels)
         #     ax_curr.set_yticks([])
@@ -330,58 +337,57 @@ tmax = 1.5
 trial_time = np.arange(tmin_onset, tmax + step, step)
 n_trials = len(beh_data['correct'])
 n_timepoints = trial_time.shape[0]
-n_electrodes = 2
-neural_data = np.zeros((n_trials, n_electrodes, n_timepoints))
+neural_data = np.zeros((n_trials, neuron_count, n_timepoints))
 labels = []
 
-# for file in all_su_files:
+curr_neur = 0
+for file in all_su_files:
 
     # step 1. Load in one file, and comb through it for neurons
-microwire_spikes = loadmat(su_data_dir / file)
-    # neuron_counts = microwire_spikes['useNegative'][0].shape[0]
+    microwire_spikes = loadmat(su_data_dir / file)
+    neuron_counts = microwire_spikes['useNegative'][0].shape[0]
 
 
-for neuron_ind in range(neuron_counts):
-    su_cluster_num = microwire_spikes['useNegative'][0][neuron_ind]
-    labels.append(str(su_cluster_num))
-    # Note that these timestamps are in microseconds, and according to machine clock
-    microsec_sec_trans = 10**-6
-    su_timestamps = np.array([[microwire_spikes['newTimestampsNegative'][0, i]*microsec_sec_trans-start_record] for i in
-                                  range(microwire_spikes['newTimestampsNegative'].shape[1])
-                                 if microwire_spikes['assignedNegative'][0, i] == su_cluster_num])
+    for neuron_ind in range(neuron_counts):
+        su_cluster_num = microwire_spikes['useNegative'][0][neuron_ind]
+        labels.append(str(su_cluster_num))
+        # Note that these timestamps are in microseconds, and according to machine clock
+        microsec_sec_trans = 10**-6
+        su_timestamps = np.array([[microwire_spikes['newTimestampsNegative'][0, i]*microsec_sec_trans-start_record] for i in
+                                      range(microwire_spikes['newTimestampsNegative'].shape[1])
+                                     if microwire_spikes['assignedNegative'][0, i] == su_cluster_num])
 
-    # trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
-    # Plot response in spikes of this one neuron relative to each onset event
-    trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, tmin=tmin_onset, tmax=tmax)
+        # trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
+        # Plot response in spikes of this one neuron relative to each onset event
+        trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, tmin=tmin_onset, tmax=tmax)
 
-    sort_order = sorted(set(beh_data['correct']))
-    if len(sort_order) == 3:
-        color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
-    else:
-        color_dict = dict(zip(sort_order, ['purple', 'orange']))
+        sort_order = sorted(set(beh_data['correct']))
+        if len(sort_order) == 3:
+            color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
+        else:
+            color_dict = dict(zip(sort_order, ['purple', 'orange']))
 
-    spike_trains_sorted, beh_conditions_sorted, change_indices = get_spike_rate_curves(trial_wise_feedback_spikes,
-                                                                                       beh_data['correct'],
-                                                                                       tmin=tmin_onset,
-                                                                                       tmax=tmax, step=step,
-                                                                                       binsize=binsize,
-                                                                                       mode='single_trial')
+        spike_trains_sorted, beh_conditions_sorted, change_indices = get_spike_rate_curves(trial_wise_feedback_spikes,
+                                                                                           beh_data['correct'],
+                                                                                           tmin=tmin_onset,
+                                                                                           tmax=tmax, step=step,
+                                                                                           binsize=binsize,
+                                                                                           mode='single_trial')
 
-    sigma = 0.05
-    filtered_signals = gaussian_smooth(spike_trains_sorted, sigma, step)
-    neural_data[:, neuron_ind, :] = filtered_signals
-
-    fig, axs = plt.subplots(nrows=2)
-    plot_neural_spike_trains(axs[0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
-    axs[0].set_xlim([tmin_onset, tmax])
-    for i in range(filtered_signals.shape[0]):
-        axs[1].plot(trial_time, filtered_signals[i, :], color=color_dict[beh_conditions_sorted[i]])
-    axs[0].set_title("Comparing raster plots and smoothed curves")
-    axs[1].set_xlabel("Time (s)")
-    axs[1].set_xlim([tmin_onset, tmax])
-    # axs[0].axis('off')
-    plt.show()
-    print(spike_trains_sorted)
+        sigma = 0.05
+        filtered_signals = gaussian_smooth(spike_trains_sorted, sigma, step)
+        neural_data[:, curr_neur, :] = filtered_signals
+        curr_neur += 1
+        fig, axs = plt.subplots(nrows=2)
+        plot_neural_spike_trains(axs[0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
+        axs[0].set_xlim([tmin_onset, tmax])
+        for i in range(filtered_signals.shape[0]):
+            axs[1].plot(trial_time, filtered_signals[i, :], color=color_dict[beh_conditions_sorted[i]])
+        axs[0].set_title(f"Comparing raster plots and smoothed curves for {su_cluster_num}")
+        axs[1].set_xlabel("Time (s)")
+        axs[1].set_xlim([tmin_onset, tmax])
+        # axs[0].axis('off')
+        plt.show()
 
 
 # labels are labels for the single units, consider using the cluster number
@@ -408,5 +414,5 @@ pca_comparison(dpca, organized_data_mean)
 suptitle = 'All single units'
 feedback_locked = True
 plot_dPCA_components(dpca, Z, trial_time, feedback_dict, subject, session, eff_fs, suptitle,
-                                    feedback_locked=feedback_locked, feature_names=['feedback'])
+                     feedback_locked=feedback_locked, feature_names=['feedback'])
 print('huh')
