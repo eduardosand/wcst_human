@@ -84,42 +84,30 @@ def featurize(epochs_object, feature, norm=False):
     return organized_data_mean, organized_data, feature_dict
 
 
-def plot_signal_avg(organized_data_mean, fs, subject, session, trial_time, feedback_locked=True, labels=[],extra_string=''):
+def plot_signal_avg(organized_data_mean, subject, session, trial_time,
+                    labels=[], extra_string=''):
     """
     This is a sanity function. After featurizing the data and computing signal average for each condition for each electrode,
     this will plot it. Note this function is a work in progress, and odds are that the False feedback_locked mode should
     be looked at and fixed.
-    :param organized_data_mean:
-    :param fs:
-    :param subject:
-    :param session:
+    :param organized_data_mean: (array) we expect to be of the shape n_electrodes/neurons X n_conditions X n_timepoints
+    :param subject: (string) subject identifier
+    :param session: (session) subject identifier
+    :param trial_time: (array) The timepoints of what each sample in organized data mean corresponds to
     :param feedback_locked:
     :return:
     """
     n_electrodes, n_cond, n_time = organized_data_mean.shape
-    if feedback_locked:
-        baseline_start = 0
-        bin = 0.5
-        min_multiple = np.min(trial_time) // 0.5
-        # pad = 0.2
-        time_ticks = np.arange(min_multiple*bin, np.max(trial_time), step=0.5)
-        time_tick_labels = time_ticks
-        # time_ticks = np.linspace(0, (abs(baseline_start)+tmax-pad)*fs, 7)
-        # time_tick_labels = np.linspace(baseline_start, tmax-pad, 7)
-        # x_zero = np.where(time_tick_labels == 0.)
+    bin = 0.5
+    min_multiple = np.min(trial_time) // 0.5
+    # pad = 0.2
+    time_ticks = np.arange(min_multiple*bin, np.max(trial_time), step=0.5)
+    time_tick_labels = time_ticks
+    # time_ticks = np.linspace(0, (abs(baseline_start)+tmax-pad)*fs, 7)
+    # time_tick_labels = np.linspace(baseline_start, tmax-pad, 7)
+    # x_zero = np.where(time_tick_labels == 0.)
     # time_tick_labels = np.insert(time_tick_labels, 0, baseline_start)
-        time_tick_labels = [f'{i:.1f}' for i in time_tick_labels]
-        # print(x_zero)
-        print(time_tick_labels)
-    else:
-        baseline_start = 0
-        time_ticks = np.linspace(abs(baseline_start*fs), (abs(baseline_start)+tmax)*fs, 6)
-        time_tick_labels = np.linspace(0, tmax, 6)
-    # time_tick_labels = np.insert(time_tick_labels, 0, baseline_start)
-        time_tick_labels = [f'{i:.1f}' for i in time_tick_labels]
-    # time_ticks = np.insert(time_ticks, 0, 0)
-
-    # time = np.arange(n_time)
+    time_tick_labels = [f'{i:.1f}' for i in time_tick_labels]
 
     ncols = 2
     n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
@@ -130,44 +118,46 @@ def plot_signal_avg(organized_data_mean, fs, subject, session, trial_time, feedb
     fig, ax = plt.subplots(int(n_plots/ncols), ncols)
     if len(labels) == 0:
         labels = np.arange(n_cond)
+
+    if len(labels) == 3:
+        color_dict = dict(zip(labels, ['red', 'green', 'blue']))
+    elif len(labels) == 2:
+        color_dict = dict(zip(labels, ['purple', 'orange']))
+    print(color_dict)
+    custom_legend = [
+        plt.Line2D([0], [0], color=color_dict[label], lw=2, label=label) for label in labels
+        ]
     for ind, ax_curr in enumerate(ax.flatten()):
         if ind >= n_electrodes:
             continue
         for cond in range(n_cond):
-            ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond])
+            ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond], color=color_dict[labels[cond]])
+
+            ax_curr.axvline(0, linestyle='--', c='black')
         if ind in np.arange(n_plots-ncols, n_plots):
             ax_curr.set_xlabel('Time (s)')
             ax_curr.set_xticks(time_ticks, time_tick_labels)
-        #     ax_curr.set_yticks([])
-            if feedback_locked:
-                ax_curr.vlines(0, np.min(organized_data_mean[ind, :]), np.max(organized_data_mean[ind, :]),
-                               linestyles='dashed')
-        # else:
-        #     ax_curr.set_xticks([])
-        #     ax_curr.set_yticks([])
-        #     if feedback_locked:
-        #         ax_curr.vlines(time_ticks[x_zero], np.min(organized_data_mean[ind, :]), np.max(organized_data_mean[ind, :]), linestyles='dashed')
-
-            # ax_curr.set_xlabel(f'{ind}')
+                # Create a summarized legend
+    ax.flatten()[-1].axis('off')  # Hide the axis
+    ax.flatten()[-1].axis('off')
+    ax.flatten()[-1].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5), ncol=1)  # Adjust the position as needed
     plt.suptitle(f'Mean Activity of SU \n {subject} - session {session} \n {extra_string}')
-    plt.legend()
+    # plt.legend()
     # plt.tight_layout()
     plt.show()
 
 
-def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, fs, suptitle, feedback_locked=False,
+def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptitle,
                          feature_names=[]):
     """
     Plotting the dPCA components, and the features they correspond to.
-    :param dpca:
+    :param dpca: dPCA object already fitted
     :param Z:
     :param trial_time: (array) This is the x-axis for the plots, should correspond to event-locked time
     :param features:
     :param subject:
     :param session:
-    :param fs:
-    :param suptitle:
-    :param feedback_locked:
+    :param suptitle: (string) Title of the plot
     :param feature_names:
     :return:
     """
@@ -200,6 +190,7 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, fs, su
         inv_rule_dim_dict.update(inv_feature_key_values)
         for s in range(len(features)):
             plt.plot(trial_time, Z['t'][0, s], label=inv_rule_dim_dict[s])
+        plt.axvline(0, linestyle='--', c='black')
 
     plt.title(f'1st time component \n explained variance: {dpca.explained_variance_ratio_["t"][0]:.2%}')
     # plt.xticks(time_ticks, time_tick_labels)
@@ -219,10 +210,12 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, fs, su
         for f in range(n_features_1):
             for r in range(n_features_2):
                 plt.plot(trial_time, Z['f'][0, f, r], label=inv_feature_one_dict[f]+inv_feature_two_dict[r])
+        plt.axvline(0, linestyle='--', c='black')
         plt.title(f'1st feedback component \n explained variance: {dpca.explained_variance_ratio_["f"][0]:.2%}')
     else:
         for s in range(len(features)):
             plt.plot(trial_time, Z['s'][0, s], label=inv_rule_dim_dict[s])
+        plt.axvline(0, linestyle='--', c='black')
         if len(feature_names) == 0:
             plt.title(f'1st rule component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
         else:
@@ -251,6 +244,7 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, fs, su
     else:
         for s in range(len(features)):
             plt.plot(trial_time, Z['st'][0, s])
+        plt.axvline(0, linestyle='--', c='black')
         plt.title(f'1st mixed component \n explained variance: {dpca.explained_variance_ratio_["st"][0]:.2%}')
 
     # plt.xticks(time_ticks, time_tick_labels)
@@ -281,6 +275,7 @@ def pca_comparison(dpca, organized_data_mean):
     plt.title('PCA vs. dPCA')
     plt.legend()
     plt.show()
+
 # This script serves to perform a dPCA on the spiking data
 
 # the first step towards that aim is to get my neural data and plot it
@@ -394,7 +389,7 @@ for file in all_su_files:
 # for ch type, don't use seeg
 eff_fs = int(1/step)
 mne_info = mne.create_info(list(labels), eff_fs, ch_types='seeg')
-standardized_data = False
+standardized_data = True
 
 # su_data is just what we're plotting above
 epochs_object = mne.EpochsArray(neural_data, mne_info)
@@ -403,8 +398,8 @@ epochs_object = mne.EpochsArray(neural_data, mne_info)
 # baselining is a problem
 organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, beh_conditions_sorted,
                                                                norm=standardized_data)
-plot_signal_avg(organized_data_mean, eff_fs, subject, session, trial_time, feedback_locked=True, labels=feedback_dict,
-                   extra_string=f'Normalization = {standardized_data}')
+plot_signal_avg(organized_data_mean, subject, session, trial_time, labels=feedback_dict,
+                extra_string=f'Normalization = {standardized_data}')
 
 dpca = dPCA.dPCA(labels='st', regularizer='auto')
 dpca.protect = ['t']
@@ -412,7 +407,6 @@ Z = dpca.fit_transform(organized_data_mean, organized_data)
 
 pca_comparison(dpca, organized_data_mean)
 suptitle = 'All single units'
-feedback_locked = True
-plot_dPCA_components(dpca, Z, trial_time, feedback_dict, subject, session, eff_fs, suptitle,
-                     feedback_locked=feedback_locked, feature_names=['feedback'])
+plot_dPCA_components(dpca, Z, trial_time, feedback_dict, subject, session, suptitle,
+                     feature_names=['feedback'])
 print('huh')
