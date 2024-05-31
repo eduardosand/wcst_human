@@ -37,19 +37,21 @@ def plot_neural_spike_trains(ax, spike_trains, beh_conditions, color_dict, line_
     :return:
     """
     spike_trains_sorted, beh_conditions_sorted, change_indices = sort_spike_trains(spike_trains, beh_conditions)
-    ax.eventplot(spike_trains_sorted, linelengths=line_length, linewidths=line_width, colors=list(map(color_dict.get, beh_conditions_sorted)))
+    ax.eventplot(spike_trains_sorted, linelengths=line_length, linewidths=line_width,
+                 colors=list(map(color_dict.get, beh_conditions_sorted)))
     ax.axvline(0, linestyle='--', c='black')
 
 
-def get_spike_rate_curves(spike_trains, beh_conditions, tmin=-1., tmax=1.5, step=0.050, binsize=0.1, mode='average'):
+def get_spike_rate_curves(spike_trains, beh_conditions, tmin=-1., tmax=1.5, step=0.050, binsize=0.05, mode='average'):
     """
     Straightforward here. Trying to get full spike trains by either averaging in bins, or trial-wise spikes
     :param spike_trains:
     :param beh_conditions:
-    :param tmin:
-    :param tmax:
-    :param step:
-    :param binsize:
+    :param tmin: (float) Minimum time to look relative to event lock time (predecided by spike_trains_sorted)
+    :param tmax: (float) Max time in seconds to look relative to event lock time
+    :param step: (float) How far forward we go when discretizing
+    :param binsize: (float) Time interval to look for spikes for a given step. If smoothing after,
+                            should be the same as step, otherwise is a form of smoothing itself
     :param mode:
     :return:
     """
@@ -250,6 +252,7 @@ def main():
                                        ncol=1)  # Adjust the position as needed
                     plt.tight_layout()
             plt.show()
+
 
 if __name__ == "__main__":
     main()
