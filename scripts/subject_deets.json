@@ -34,6 +34,7 @@
                 "photodiode_uploaded": "True",
                 "behavior_uploaded": "True",
                 "single_unit_uplaoded": "True",
+                "photodiode_timestamps_acquired": "True",
 
         }
         }
