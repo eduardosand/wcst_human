@@ -11,7 +11,7 @@ from behavior_analysis import get_wcst_data
 # Pretty much everything here hasn't been tested yet, be advised
 
 
-def ph_bhv_alignment(ph_signal, trials, rt, sample_rate, cutoff_fraction=2, task_time=None):
+def ph_bhv_alignment(ph_signal, trials, rt, sample_rate, cutoff_fraction=2, task_time=None, tau=None):
     '''
     Script processes photodiode signal. Assumes 1 event, and requires task time to limit analysis to.
     :param ph_signal: This is the photodiode signal itself (array of floats)
@@ -26,15 +26,15 @@ def ph_bhv_alignment(ph_signal, trials, rt, sample_rate, cutoff_fraction=2, task
     :return: ph_offset_trials: Array of event offsets in samples (array of int)
     :return: padded_rts:
     '''
-    ph_signal_bin = binarize_ph(ph_signal, sample_rate, cutoff_fraction, task_time)
-
+    ph_signal_bin = binarize_ph(ph_signal, sample_rate, cutoff_fraction, task_time, tau=tau)
+    print('done')
     diagnostic_time_series_plot(ph_signal_bin, sample_rate, electrode_name='Binary Photodiode')
 
     onset_events = np.where(np.diff(ph_signal_bin) > 0)[0]
     offset_events = np.where(np.diff(ph_signal_bin) < 0)[0]
     print(onset_events.shape)
     print(offset_events.shape)
-    min_rt = np.nanmin(rt)  # min but ignore faulty key press (logged as nan)
+    min_rt = float(np.nanmin(rt))  # min but ignore faulty key press (logged as nan)
 
     # We might start with the photodiode on!
     if len(offset_events) > len(onset_events) and offset_events[0] < onset_events[0]:
@@ -47,12 +47,16 @@ def ph_bhv_alignment(ph_signal, trials, rt, sample_rate, cutoff_fraction=2, task
     # why use onset for both? because difference between onset and offset isn't constant so there may be variable number
     # of events with difference greater than some value across onset and offset
     # This is going to get rid of events that are under some specific time, here the 70% of minimum response time
-    event_cutoff = 0.7
+    event_cutoff = 0.6
+    # print(onset_events[np.diff(onset_events,
+    #                                            append=onset_events[-1]+(sample_rate*min_rt*event_cutoff+1))
+    #                                    < sample_rate * min_rt * event_cutoff])
+    # print('huh')
     onset_events_pruned = onset_events[np.diff(onset_events,
-                                               append=onset_events[-1]+(sample_rate*min_rt*event_cutoff))
+                                               append=onset_events[-1]+(sample_rate*min_rt*event_cutoff+1))
                                        >= sample_rate * min_rt * event_cutoff]
     offset_events_pruned = offset_events[np.diff(onset_events,
-                                                 append=onset_events[-1]+(sample_rate*min_rt*event_cutoff))
+                                                 append=onset_events[-1]+(sample_rate*min_rt*event_cutoff+1))
                                          >= sample_rate * min_rt * event_cutoff]
 
     event_lengths_pruned = (offset_events_pruned-onset_events_pruned) / sample_rate
@@ -62,10 +66,10 @@ def ph_bhv_alignment(ph_signal, trials, rt, sample_rate, cutoff_fraction=2, task
     start_trial_num = np.sort(trials)[0]
     if start_trial_num > 0:
         # padded_trials = np.insert(trials, 0, np.arange(start_trial_num)+1)
-        padded_rts = np.insert(np.array(rt), 0, np.arange(start_trial_num) + 1)
+        padded_rts = np.insert(np.array(rt, dtype=float), 0, np.arange(start_trial_num) + 1)
     else:
         # padded_trials = trials
-        padded_rts = np.array(rt)
+        padded_rts = np.array(rt, dtype=float)
 
     # np.diff makes a new array of n-1, I'm adding a nan, so I can index easier
     trial_diff_num = np.diff(trials, append=np.array(np.NAN))
@@ -121,6 +125,7 @@ def photodiode_behavior_alignment_plot(padded_rts, event_lengths_pruned, output_
     ax[0].legend()
 
     ax[1].hist(event_lengths_pruned-padded_rts)
+    print(np.argmax(event_lengths_pruned-padded_rts))
     ax[1].set_title('Difference between event lengths and recorded rts')
     if output_folder is not None:
         plt.savefig(os.path.join(output_folder, f'{subject}_{session}.png'))
@@ -172,7 +177,7 @@ def get_ph_timestamps(subject, session, task):
 
     ph_signal, sample_rate, _, timestamps = read_task_ncs(data_directory, ph_filename, task=task,
                                                           events_file=event_file)
-
+    # the events file should cut the ph_signal already
 
     # Okay now with our photodiode signal in tow, we'll get a histogram
     plt.hist(ph_signal)
@@ -188,6 +193,7 @@ def get_ph_timestamps(subject, session, task):
     bhv_file_path = bhv_directory / bhv_files[0]
     # Now to get ground truth data for wisconsin card sorting
     trials, rt, _ = get_wcst_data(bhv_file_path)
+
 
     # Use both behavioral data and photodiode data to do alignment
     # remember that task_start_segment_time is the baseline for the array
@@ -215,7 +221,7 @@ def get_ph_timestamps(subject, session, task):
 
 def main():
     test_subject = 'IR95'
-    test_session = 'sess-3'
+    test_session = 'sess-1'
     task = 'wcst'
     get_ph_timestamps(test_subject, test_session, task)
 
