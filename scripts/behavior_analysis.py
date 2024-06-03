@@ -40,7 +40,9 @@ def get_wcst_data(file_name):
     beh_data = beh_data.rename(columns={'trials.thisTrialN': 'trial'})
     beh_data.dropna(subset=['trial'], inplace=True)
     trials = beh_data['trial']
-    rt = beh_data['response_time']
+    # Replace weirdness with max time
+    beh_data.loc[beh_data.response_time == '[]', 'response_time'] = '4.'
+    rt = beh_data['response_time'].astype(float)
     return trials, rt, beh_data
 
 
@@ -165,6 +167,8 @@ def process_wcst_behavior(file_name, running_avg=5):
     incorrect_eq = (beh_data['correct'] != beh_data['ans_correctness']).any()
     rule_shifts_ind = list(beh_data[beh_data.rule_shift_bool == True]['trial'].astype(int))
     beh_data.dropna(subset='key press', inplace=True)
+    # beh_data[beh_data.rt == '[]'] = 0.
+    # beh_data[beh_data.rt].astype(float)
     return beh_data, rule_shifts_ind, incorrect_eq
 
 
