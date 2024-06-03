@@ -43,8 +43,11 @@ def featurize(epochs_object, feature, norm=False):
     features = set(list(feature))
 
     feature_dict = {}
-    rule_dim_key_values = [(value, ind) for ind, value in enumerate(features)]
-    feature_dict.update(rule_dim_key_values)
+    feature_key_values = [(value, ind) for ind, value in enumerate(features)]
+    feature_dict.update(feature_key_values)
+    inv_feature_dict = {}
+    feature_key_values = [(ind, value) for ind, value in enumerate(features)]
+    inv_feature_dict.update(feature_key_values)
     # rule_split = [list(rule[~np.isnan(rt)]).count(i) for i in set(list(rule[~np.isnan(rt)]))]
     feature_split = [list(feature).count(i) for i in features]
     # Here, we're making a better epochs object that is also factored by condition
@@ -81,7 +84,7 @@ def featurize(epochs_object, feature, norm=False):
     else:
         organized_data_mean = np.nanmean(organized_data, axis=0)
         organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
-    return organized_data_mean, organized_data, feature_dict
+    return organized_data_mean, organized_data, inv_feature_dict
 
 
 def plot_signal_avg(organized_data_mean, subject, session, trial_time,
@@ -118,6 +121,8 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     fig, ax = plt.subplots(int(n_plots/ncols), ncols)
     if len(labels) == 0:
         labels = np.arange(n_cond)
+    else:
+        print(labels)
 
     if len(labels) == 3:
         color_dict = dict(zip(labels, ['red', 'green', 'blue']))
@@ -133,15 +138,16 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
             ax.flatten()[ind-2].set_xticks(time_ticks, time_tick_labels)
             continue
         for cond in range(n_cond):
-            ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond], color=color_dict[labels[cond]])
+            ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond], color=color_dict[cond])
 
             ax_curr.axvline(0, linestyle='--', c='black')
         if ind in np.arange(n_plots-ncols, n_plots):
             ax_curr.set_xlabel('Time (s)')
             ax_curr.set_xticks(time_ticks, time_tick_labels)
                 # Create a summarized legend
-    ax.flatten()[-1].axis('off')  # Hide the axis
-    ax.flatten()[-1].axis('off')
+    if n_plots > n_electrodes:
+        ax.flatten()[-1].axis('off')  # Hide the axis
+        ax.flatten()[-1].axis('off')
     ax.flatten()[-1].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5), ncol=1)  # Adjust the position as needed
     plt.suptitle(f'Mean Activity of SU \n {subject} - session {session} \n {extra_string}')
     # plt.legend()
@@ -280,7 +286,7 @@ def pca_comparison(dpca, organized_data_mean , type):
 
 
 # This script serves to perform a dPCA on the spiking data
-def sua_prep(subject, session, standardized_data=False, event_lock='Onset'):
+def sua_prep(subject, session, standardized_data=False, event_lock='Onset', feature='correct'):
     timestamps_file = f"sub-{subject}-{session}-ph_timestamps.csv"
 
     data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
@@ -358,15 +364,20 @@ def sua_prep(subject, session, standardized_data=False, event_lock='Onset'):
             # trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
             # Plot response in spikes of this one neuron relative to each onset event
             trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, event_times, tmin=tmin_onset, tmax=tmax)
-
-            sort_order = sorted(set(beh_data['correct']))
+            if feature == 'correct':
+                feature_values = beh_data['correct']
+            elif feature == 'rule dimension':
+                feature_values = beh_data['rule dimension']
+            else:
+                feature_values = beh_data['chosen']
+            sort_order = sorted(set(feature_values))
             if len(sort_order) == 3:
                 color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
             else:
                 color_dict = dict(zip(sort_order, ['purple', 'orange']))
 
             spike_trains_sorted, beh_conditions_sorted, change_indices = get_spike_rate_curves(trial_wise_feedback_spikes,
-                                                                                               beh_data['correct'],
+                                                                                               feature_values,
                                                                                                tmin=tmin_onset,
                                                                                                tmax=tmax, step=step,
                                                                                                binsize=binsize,
@@ -402,80 +413,84 @@ def sua_prep(subject, session, standardized_data=False, event_lock='Onset'):
                                                                    norm=standardized_data)
     return organized_data_mean, organized_data, feedback_dict, trial_time
 
-session = 'sess-2'
+
+def dpca_plot_analysis(organized_data_mean, organized_data, subject, session, event_lock,
+                       regularization_setting='auto'):
+    """
+    Put stuff here about plots, what kind of arrays these are etc
+    :param subject:
+    :param session:
+    :param regularization_setting:
+    :param event_lock:
+    :param standardized_data:
+    :return:
+    """
+    dpca = dPCA.dPCA(labels='st', regularizer=regularization_setting)
+    dpca.protect = ['t']
+    Z = dpca.fit_transform(organized_data_mean, organized_data)
+
+    pca_comparison(dpca, organized_data_mean, type='trial average')
+    new_organized_data = np.swapaxes(organized_data, 0, 1)
+    new_organized_data_frame = pd.DataFrame(new_organized_data.reshape(new_organized_data.shape[0], -1))
+    new_organized_data_frame.dropna(inplace=True, axis='columns')
+    trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
+    pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
+    suptitle = f'All single units {event_lock}-locked'
+    plot_dPCA_components(dpca, Z, trial_time, feedback_dict, subject, session, suptitle,
+                         feature_names=['feedback'])
+    return dpca, Z
+
+
+session = 'sess-1'
 subject = 'IR95'
+feature = 'rule dimension'
 standardized_data = False
-event_lock = 'Onset'
+event_lock = 'Feedback'
+regularization_setting = 0
+
 organized_data_mean, organized_data, feedback_dict, trial_time = sua_prep(subject, session, standardized_data,
-                                                                          event_lock)
+                                                                          event_lock, feature=feature)
 plot_signal_avg(organized_data_mean, subject, session, trial_time, labels=feedback_dict,
                 extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
-regularization_setting = None
-# regularization_setting = 'auto'
-dpca = dPCA.dPCA(labels='st', regularizer=regularization_setting)
-dpca.protect = ['t']
-Z = dpca.fit_transform(organized_data_mean, organized_data)
+dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, subject, session, event_lock,
+                                 regularization_setting=regularization_setting)
 
-pca_comparison(dpca, organized_data_mean, type='trial average')
-new_organized_data = np.swapaxes(organized_data, 0, 1)
-new_organized_data_frame = pd.DataFrame(new_organized_data.reshape(new_organized_data.shape[0], -1))
-new_organized_data_frame.dropna(inplace=True, axis='columns')
-trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
-pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
-suptitle = f'All single units {event_lock}-locked'
-plot_dPCA_components(dpca, Z, trial_time, feedback_dict, subject, session, suptitle,
-                     feature_names=['feedback'])
+
+session2 = 'sess-2'
+organized_data_mean_2, organized_data_2, feedback_dict_2, trial_time_2 = sua_prep(subject, session2, standardized_data,
+                                                                                  event_lock, feature=feature)
+plot_signal_avg(organized_data_mean_2, subject, session2, trial_time, labels=feedback_dict,
+                extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
+dpca_2, Z_2 = dpca_plot_analysis(organized_data_mean_2, organized_data_2, subject, session2, event_lock,
+                                 regularization_setting=regularization_setting)
 
 session3 = 'sess-3'
 organized_data_mean_3, organized_data_3, feedback_dict_3, trial_time_3 = sua_prep(subject, session3, standardized_data,
-                                                                                  event_lock)
+                                                                                  event_lock, feature=feature)
 plot_signal_avg(organized_data_mean_3, subject, session3, trial_time, labels=feedback_dict,
                 extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
+dpca_3, Z_3 = dpca_plot_analysis(organized_data_mean_3, organized_data_3, subject, session3, event_lock,
+                                 regularization_setting=regularization_setting)
 
-dpca = dPCA.dPCA(labels='st', regularizer=regularization_setting)
-dpca.protect = ['t']
-Z_2 = dpca.fit_transform(organized_data_mean_3, organized_data_3)
-
-pca_comparison(dpca, organized_data_mean_3, type='trial average')
-new_organized_data = np.swapaxes(organized_data_mean_3, 0, 1)
-new_organized_data_frame = pd.DataFrame(new_organized_data.reshape(new_organized_data.shape[0], -1))
-new_organized_data_frame.dropna(inplace=True, axis='columns')
-trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
-pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
-suptitle = f'All single units {event_lock}-locked'
-plot_dPCA_components(dpca, Z_2, trial_time, feedback_dict, subject, session3, suptitle,
-                     feature_names=['feedback'])
-
-num_trials_2, num_neurons_2, num_cond, num_timepoints = organized_data.shape
+num_trials, num_neurons, num_cond, num_timepoints = organized_data.shape
+num_trials_2, num_neurons_2, _, _ = organized_data_2.shape
 num_trials_3, num_neurons_3, _, _ = organized_data_3.shape
-total_neurons = num_neurons_2+num_neurons_3
-max_trials_per_cond = np.max([num_trials_2, num_trials_3])
+total_neurons = num_neurons_2+num_neurons_3+num_neurons
+max_trials_per_cond = np.max([num_trials_2, num_trials_3, num_trials])
 completed_data_set_mean = np.zeros((total_neurons,
                                     num_cond, num_timepoints))
 completed_data_set_mean[completed_data_set_mean == 0] = np.nan
-completed_data_set_mean[0:organized_data_mean.shape[0], :, :] = organized_data_mean
-completed_data_set_mean[organized_data_mean.shape[0]:, :, :] = organized_data_mean_3
+completed_data_set_mean[0:num_neurons, :, :] = organized_data_mean
+completed_data_set_mean[num_neurons:num_neurons_2+num_neurons, :, :] = organized_data_mean_2
+completed_data_set_mean[num_neurons_2+num_neurons:, :, :] = organized_data_mean_3
 
 
-completed_data_set = np.zeros((max_trials_per_cond, total_neurons,
-                                    num_cond, num_timepoints))
+completed_data_set = np.zeros((max_trials_per_cond, total_neurons, num_cond, num_timepoints))
 completed_data_set[completed_data_set == 0] = np.nan
-completed_data_set[0:num_trials_2, 0:num_neurons_2, :, :] = organized_data
-completed_data_set[0:num_trials_3, num_neurons_2:, :, :] = organized_data_3
-
-
-dpca = dPCA.dPCA(labels='st', regularizer=regularization_setting)
-dpca.protect = ['t']
-Z = dpca.fit_transform(completed_data_set_mean, completed_data_set)
-
-pca_comparison(dpca, completed_data_set_mean, type='trial average')
-new_organized_data = np.swapaxes(completed_data_set_mean, 0, 1)
-new_organized_data_frame = pd.DataFrame(new_organized_data.reshape(new_organized_data.shape[0], -1))
-new_organized_data_frame.dropna(inplace=True, axis='columns')
-trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
-pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
-suptitle = f'All single units {event_lock}-locked'
-session = 'sess-2 and sess-3'
-plot_dPCA_components(dpca, Z, trial_time, feedback_dict, subject, session, suptitle,
-                     feature_names=['feedback'])
+completed_data_set[0:num_trials, 0:num_neurons, :, :] = organized_data
+completed_data_set[0:num_trials_2, num_neurons:num_neurons+num_neurons_2, :, :] = organized_data_2
+completed_data_set[0:num_trials_3, num_neurons+num_neurons_2:, :, :] = organized_data_3
+session_all = 'sess-1, sess-2, and sess-3'
+dpca_all, Z_all = dpca_plot_analysis(completed_data_set_mean, completed_data_set, subject, session_all, event_lock,
+                                     regularization_setting=regularization_setting)
 print('huh')
