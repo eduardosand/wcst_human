@@ -41,7 +41,9 @@ def get_wcst_data(file_name):
     beh_data.dropna(subset=['trial'], inplace=True)
     trials = beh_data['trial']
     # Replace weirdness with max time
-    beh_data.loc[beh_data.response_time == '[]', 'response_time'] = '4.'
+    # do something about this only if there are actually strings
+    if beh_data['response_time'].dtype == 'object':
+        beh_data.loc[beh_data.response_time == '[]', 'response_time'] = '4.'
     rt = beh_data['response_time'].astype(float)
     return trials, rt, beh_data
 
@@ -75,7 +77,7 @@ def process_wcst_behavior(file_name, running_avg=5):
 
     # NOTE: The original experiment behavioral files have a way to tell between different s's. If we can find those
     # files, this stops not working
-    rule_dict = {'S': 'Problem', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
+    rule_dict = {'S': 'Shape', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
                  'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'W': 'Texture', 'R': 'Texture'}
     # Cover every possible version of this experiment
     rule_shift_dict = {'yes': True, 'no': False, True: True, False: False, '0': False, 'extra': True, 'intra': True}
