@@ -157,7 +157,7 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
 
 
 def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptitle,
-                         labels=[]):
+                         labels=[], feature_names=[]):
     """
     Plotting the dPCA components, and the features they correspond to.
     :param dpca: dPCA object already fitted
@@ -194,10 +194,6 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
             for r in range(n_features_2):
                 plt.plot(trial_time, Z['t'][0, f, r], label=inv_feature_one_dict[f]+inv_feature_one_dict[r])
     else:
-        inv_rule_dim_dict = {}
-        inv_feature_key_values = [(ind, val) for ind, val in enumerate(features)]
-        inv_rule_dim_dict.update(inv_feature_key_values)
-
         if len(labels) == 0:
             labels = np.arange(n_cond)
         else:
@@ -210,7 +206,7 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
         print(color_dict)
 
         for s in range(len(features)):
-            plt.plot(trial_time, Z['t'][0, s], label=inv_rule_dim_dict[s])
+            plt.plot(trial_time, Z['t'][0, s], label=labels[s], color=color_dict[s])
         plt.axvline(0, linestyle='--', c='black')
 
     plt.title(f'1st time component \n explained variance: {dpca.explained_variance_ratio_["t"][0]:.2%}')
@@ -235,12 +231,12 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
         plt.title(f'1st feedback component \n explained variance: {dpca.explained_variance_ratio_["f"][0]:.2%}')
     else:
         for s in range(len(features)):
-            plt.plot(trial_time, Z['s'][0, s], label=inv_rule_dim_dict[s])
+            plt.plot(trial_time, Z['s'][0, s], label=labels[s], color=color_dict[s])
         plt.axvline(0, linestyle='--', c='black')
         if len(labels) == 0:
-            plt.title(f'1st rule component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
+            plt.title(f'1st non-time component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
         else:
-            plt.title(f'1st {labels[0]} component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
+            plt.title(f'1st {feature_names[0]} component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
 
     # plt.xticks(time_ticks, time_tick_labels)
     plt.xlabel('Time (s)')
@@ -249,7 +245,6 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
     plt.subplot(133)
 
     if n_features > 1:
-
         n_features_1, n_features_2 = features.shape
         inv_feature_one_dict = {}
         inv_feature_key_values = [(ind, val[:-1]) for ind, val in enumerate(features[:, 0])]
@@ -264,10 +259,10 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
         plt.title(f'1st rule component \n explained variance: {dpca.explained_variance_ratio_["r"][0]:.2%}')
     else:
         for s in range(len(features)):
-            plt.plot(trial_time, Z['st'][0, s], label=inv_rule_dim_dict[s])
+            plt.plot(trial_time, Z['st'][0, s], label=labels[s], color=color_dict[s])
         plt.axvline(0, linestyle='--', c='black')
         plt.title(f'1st mixed component \n explained variance: {dpca.explained_variance_ratio_["st"][0]:.2%}')
-
+    plt.legend()
     # plt.xticks(time_ticks, time_tick_labels)
     plt.xlabel('Time (s)')
     plt.suptitle(f' Subject {subject} - Session {session} \n {suptitle}')
@@ -326,7 +321,6 @@ def sua_prep(subject, session, task, standardized_data=False, event_lock='Onset'
 
     beh_data, rule_shifts_ind, _ = process_wcst_behavior(bhv_file_path,
                                                          running_avg=running_avg)
-
 
     beh_data.set_index(['trial'], inplace=True)
     beh_timestamps = pd.read_csv(bhv_directory / timestamps_file)
@@ -463,7 +457,7 @@ def sua_prep(subject, session, task, standardized_data=False, event_lock='Onset'
 
 
 def dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subject, session, event_lock,
-                       regularization_setting='auto'):
+                       regularization_setting='auto', feature_names=["No clue"]):
     """
     Put stuff here about plots, what kind of arrays these are etc
     :param subject:
@@ -486,7 +480,7 @@ def dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subjec
     pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
     suptitle = f'All single units {event_lock}-locked'
     plot_dPCA_components(dpca, Z, trial_time, feature_dict, subject, session, suptitle,
-                         labels=feature_dict)
+                         labels=feature_dict, feature_names=feature_names)
     return dpca, Z
 
 
@@ -503,7 +497,8 @@ organized_data_mean, organized_data, feature_dict, trial_time = sua_prep(subject
 plot_signal_avg(organized_data_mean, subject, session, trial_time, labels=feature_dict,
                 extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
 dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subject, session, event_lock,
-                                 regularization_setting=regularization_setting)
+                                 regularization_setting=regularization_setting,
+                                 feature_names=[feature])
 
 
 session2 = 'sess-2'
@@ -523,6 +518,8 @@ plot_signal_avg(organized_data_mean_3, subject, session3, trial_time, labels=fea
                 extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
 # dpca_3, Z_3 = dpca_plot_analysis(organized_data_mean_3, organized_data_3, feature_dict_3, subject, session3, event_lock,
 #                                  regularization_setting=regularization_setting)
+
+
 
 num_trials, num_neurons, num_cond, num_timepoints = organized_data.shape
 num_trials_2, num_neurons_2, _, _ = organized_data_2.shape
@@ -549,5 +546,5 @@ else:
     warnings.warn("Feature dict not the same across datasets, DO NOT CONTINUE without fixing.")
 dpca_all, Z_all = dpca_plot_analysis(completed_data_set_mean, completed_data_set, feature_dict, subject, session_all,
                                      event_lock,
-                                     regularization_setting=regularization_setting, labels=feature_dict_3)
+                                     regularization_setting=regularization_setting, feature_names=[feature])
 print('huh')
