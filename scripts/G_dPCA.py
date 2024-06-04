@@ -2,6 +2,7 @@ import os
 import numpy as np
 from scipy.io import loadmat
 from intracranial_ephys_utils.load_data import read_file, get_file_info
+from intracranial_ephys_utils.manual_process import get_annotated_task_start_time
 from C_su_raster_plots import get_trial_wise_times, get_spike_rate_curves, plot_neural_spike_trains
 from behavior_analysis import process_wcst_behavior
 from pathlib import Path
@@ -12,6 +13,7 @@ import matplotlib
 import mne
 from dPCA import dPCA
 from sklearn.decomposition import PCA
+import warnings
 
 
 def gaussian_smooth(spike_trains_sorted, sigma, step):
@@ -100,7 +102,6 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     :param feedback_locked:
     :return:
     """
-    n_electrodes, n_cond, n_time = organized_data_mean.shape
     bin = 0.5
     min_multiple = np.min(trial_time) // 0.5
     # pad = 0.2
@@ -130,7 +131,7 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
         color_dict = dict(zip(labels, ['purple', 'orange']))
     print(color_dict)
     custom_legend = [
-        plt.Line2D([0], [0], color=color_dict[label], lw=2, label=label) for label in labels
+        plt.Line2D([0], [0], color=color_dict[label], lw=2, label=labels[label]) for label in labels
         ]
     for ind, ax_curr in enumerate(ax.flatten()):
         if ind >= n_electrodes:
@@ -156,7 +157,7 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
 
 
 def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptitle,
-                         feature_names=[]):
+                         labels=[]):
     """
     Plotting the dPCA components, and the features they correspond to.
     :param dpca: dPCA object already fitted
@@ -196,6 +197,18 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
         inv_rule_dim_dict = {}
         inv_feature_key_values = [(ind, val) for ind, val in enumerate(features)]
         inv_rule_dim_dict.update(inv_feature_key_values)
+
+        if len(labels) == 0:
+            labels = np.arange(n_cond)
+        else:
+            print(labels)
+
+        if len(labels) == 3:
+            color_dict = dict(zip(labels, ['red', 'green', 'blue']))
+        elif len(labels) == 2:
+            color_dict = dict(zip(labels, ['purple', 'orange']))
+        print(color_dict)
+
         for s in range(len(features)):
             plt.plot(trial_time, Z['t'][0, s], label=inv_rule_dim_dict[s])
         plt.axvline(0, linestyle='--', c='black')
@@ -224,10 +237,10 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
         for s in range(len(features)):
             plt.plot(trial_time, Z['s'][0, s], label=inv_rule_dim_dict[s])
         plt.axvline(0, linestyle='--', c='black')
-        if len(feature_names) == 0:
+        if len(labels) == 0:
             plt.title(f'1st rule component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
         else:
-            plt.title(f'1st {feature_names[0]} component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
+            plt.title(f'1st {labels[0]} component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
 
     # plt.xticks(time_ticks, time_tick_labels)
     plt.xlabel('Time (s)')
@@ -251,7 +264,7 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
         plt.title(f'1st rule component \n explained variance: {dpca.explained_variance_ratio_["r"][0]:.2%}')
     else:
         for s in range(len(features)):
-            plt.plot(trial_time, Z['st'][0, s])
+            plt.plot(trial_time, Z['st'][0, s], label=inv_rule_dim_dict[s])
         plt.axvline(0, linestyle='--', c='black')
         plt.title(f'1st mixed component \n explained variance: {dpca.explained_variance_ratio_["st"][0]:.2%}')
 
@@ -285,13 +298,27 @@ def pca_comparison(dpca, organized_data_mean , type):
     plt.show()
 
 
-# This script serves to perform a dPCA on the spiking data
-def sua_prep(subject, session, standardized_data=False, event_lock='Onset', feature='correct'):
+def sua_prep(subject, session, task, standardized_data=False, event_lock='Onset', feature='correct',
+             threshold_firing_rate=0.5,
+             diagnostic=False):
+    """
+    Prepare single unit data for further analyses. Output of spike sorting is .mat files with timestamps for all
+    clusters on microwire. We'd like to select the neurons that the reviewer deemed appropriate and not noise, grab
+    timestamps of spikes for that 'neuron' and format the data in the time-locked way, sorting by the conditions we choose
+    :param subject: (string) ID of the subject.
+    :param session:
+    :param task:
+    :param standardized_data:
+    :param event_lock:
+    :param feature:
+    :param frequency_cutoff:
+    :param diagnostic:
+    :return:
+    """
     timestamps_file = f"sub-{subject}-{session}-ph_timestamps.csv"
 
     data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
     ph_file_path = get_file_info(data_directory / Path('raw'), 'photo1', '.ncs')
-
 
     running_avg = 5
     bhv_directory = data_directory / Path("behavior")
@@ -309,14 +336,20 @@ def sua_prep(subject, session, standardized_data=False, event_lock='Onset', feat
         event_times = onset_times
     elif event_lock == 'Feedback':
         event_times = feedback_times
+    if task == 'wcst':
+        start_time_sec, end_time_sec, duration = get_annotated_task_start_time(subject, session, task, data_directory)
+    else:
+        warnings.warn('Problem getting the start and end time for average firing rate estimation. Will use first and'
+                      'timestamp instead')
+        start_time_sec = onset_times[0]
+        end_time_sec = feedback_times[-1]
+        duration = end_time_sec - start_time_sec
 
 
     # global t-start
     reader = read_file(ph_file_path)
     reader.parse_header()
     start_record = reader.global_t_start
-    number_spikes = []
-    curr_neuron = 0
 
     su_data_dir = data_directory / "sorted/sort/final"
     all_su_files = os.listdir(su_data_dir)
@@ -329,7 +362,6 @@ def sua_prep(subject, session, standardized_data=False, event_lock='Onset', feat
         # print(data['useNegative'].shape)
         neuron_count += data['useNegative'][0].shape[0]
 
-    file = all_su_files[0]
     max_rt = max(beh_data['response_time'])
 
     # ahead of grabbing neural data, pre-define some things that are true for every neuron
@@ -345,6 +377,19 @@ def sua_prep(subject, session, standardized_data=False, event_lock='Onset', feat
     labels = []
 
     curr_neur = 0
+
+    if feature == 'correct':
+        feature_values = beh_data['correct']
+    elif feature == 'rule dimension':
+        feature_values = beh_data['rule dimension']
+    else:
+        feature_values = beh_data['chosen']
+    sort_order = sorted(set(feature_values))
+    if len(sort_order) == 3:
+        color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
+    else:
+        color_dict = dict(zip(sort_order, ['purple', 'orange']))
+
     for file in all_su_files:
 
         # step 1. Load in one file, and comb through it for neurons
@@ -354,51 +399,54 @@ def sua_prep(subject, session, standardized_data=False, event_lock='Onset', feat
 
         for neuron_ind in range(neuron_counts):
             su_cluster_num = microwire_spikes['useNegative'][0][neuron_ind]
-            labels.append(str(su_cluster_num))
-            # Note that these timestamps are in microseconds, and according to machine clock
+            # Note that these timestamps are in microseconds, and according to machine clock, so we convert them
+            # to reference time of 0(start of recording) and to be in seconds
             microsec_sec_trans = 10**-6
             su_timestamps = np.array([[microwire_spikes['newTimestampsNegative'][0, i]*microsec_sec_trans-start_record] for i in
                                           range(microwire_spikes['newTimestampsNegative'].shape[1])
                                          if microwire_spikes['assignedNegative'][0, i] == su_cluster_num])
-
+            avg_task_firing_rate = len(su_timestamps[np.logical_and(su_timestamps > start_time_sec,
+                                                                    su_timestamps < end_time_sec)])/duration
+            # print(avg_task_firing_rate)
             # trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
             # Plot response in spikes of this one neuron relative to each onset event
-            trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, event_times, tmin=tmin_onset, tmax=tmax)
-            if feature == 'correct':
-                feature_values = beh_data['correct']
-            elif feature == 'rule dimension':
-                feature_values = beh_data['rule dimension']
+            if avg_task_firing_rate > threshold_firing_rate:
+                labels.append(str(su_cluster_num))
+                trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, event_times, tmin=tmin_onset, tmax=tmax)
+
+
+                spike_trains_sorted, beh_conditions_sorted, change_indices = get_spike_rate_curves(trial_wise_feedback_spikes,
+                                                                                                   feature_values,
+                                                                                                   tmin=tmin_onset,
+                                                                                                   tmax=tmax, step=step,
+                                                                                                   binsize=binsize,
+                                                                                                   mode='single_trial')
+
+                # Drop neurons if they didn't fire frequently during task
+                # number_of_task_spikes = sum([len(trial_wise_feedback_spikes[i])
+                #                              for i in range(len(trial_wise_feedback_spikes))])
+
+                sigma = 0.05
+                filtered_signals = gaussian_smooth(spike_trains_sorted, sigma, step)
+                neural_data[:, curr_neur, :] = filtered_signals
+                curr_neur += 1
+                if diagnostic:
+                    fig, axs = plt.subplots(nrows=2)
+                    plot_neural_spike_trains(axs[0], trial_wise_feedback_spikes, feature_values, color_dict)
+                    axs[0].set_xlim([tmin_onset, tmax])
+                    for i in range(filtered_signals.shape[0]):
+                        axs[1].plot(trial_time, filtered_signals[i, :], color=color_dict[beh_conditions_sorted[i]])
+                    axs[0].set_title(f"Comparing raster plots and smoothed curves for {su_cluster_num}")
+                    axs[1].set_xlabel("Time (s)")
+                    axs[1].set_xlim([tmin_onset, tmax])
+                    # axs[0].axis('off')
+                    plt.show()
             else:
-                feature_values = beh_data['chosen']
-            sort_order = sorted(set(feature_values))
-            if len(sort_order) == 3:
-                color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
-            else:
-                color_dict = dict(zip(sort_order, ['purple', 'orange']))
+                continue
 
-            spike_trains_sorted, beh_conditions_sorted, change_indices = get_spike_rate_curves(trial_wise_feedback_spikes,
-                                                                                               feature_values,
-                                                                                               tmin=tmin_onset,
-                                                                                               tmax=tmax, step=step,
-                                                                                               binsize=binsize,
-                                                                                               mode='single_trial')
-
-            sigma = 0.05
-            filtered_signals = gaussian_smooth(spike_trains_sorted, sigma, step)
-            neural_data[:, curr_neur, :] = filtered_signals
-            curr_neur += 1
-            # fig, axs = plt.subplots(nrows=2)
-            # plot_neural_spike_trains(axs[0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
-            # axs[0].set_xlim([tmin_onset, tmax])
-            # for i in range(filtered_signals.shape[0]):
-            #     axs[1].plot(trial_time, filtered_signals[i, :], color=color_dict[beh_conditions_sorted[i]])
-            # axs[0].set_title(f"Comparing raster plots and smoothed curves for {su_cluster_num}")
-            # axs[1].set_xlabel("Time (s)")
-            # axs[1].set_xlim([tmin_onset, tmax])
-            # # axs[0].axis('off')
-            # plt.show()
-
-
+    dropped_neurons = neuron_count - curr_neur
+    print(f"Dropping {dropped_neurons} neurons from this session")
+    neural_data = neural_data[:, :curr_neur, :]
     # labels are labels for the single units, consider using the cluster number
     # for ch type, don't use seeg
     eff_fs = int(1/step)
@@ -414,7 +462,7 @@ def sua_prep(subject, session, standardized_data=False, event_lock='Onset', feat
     return organized_data_mean, organized_data, feedback_dict, trial_time
 
 
-def dpca_plot_analysis(organized_data_mean, organized_data, subject, session, event_lock,
+def dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subject, session, event_lock,
                        regularization_setting='auto'):
     """
     Put stuff here about plots, what kind of arrays these are etc
@@ -425,6 +473,7 @@ def dpca_plot_analysis(organized_data_mean, organized_data, subject, session, ev
     :param standardized_data:
     :return:
     """
+    n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
     dpca = dPCA.dPCA(labels='st', regularizer=regularization_setting)
     dpca.protect = ['t']
     Z = dpca.fit_transform(organized_data_mean, organized_data)
@@ -436,41 +485,44 @@ def dpca_plot_analysis(organized_data_mean, organized_data, subject, session, ev
     trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
     pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
     suptitle = f'All single units {event_lock}-locked'
-    plot_dPCA_components(dpca, Z, trial_time, feedback_dict, subject, session, suptitle,
-                         feature_names=['feedback'])
+    plot_dPCA_components(dpca, Z, trial_time, feature_dict, subject, session, suptitle,
+                         labels=feature_dict)
     return dpca, Z
 
 
 session = 'sess-1'
 subject = 'IR95'
+task = 'wcst'
 feature = 'rule dimension'
 standardized_data = False
 event_lock = 'Feedback'
-regularization_setting = 0
+regularization_setting = 'auto'
 
-organized_data_mean, organized_data, feedback_dict, trial_time = sua_prep(subject, session, standardized_data,
-                                                                          event_lock, feature=feature)
-plot_signal_avg(organized_data_mean, subject, session, trial_time, labels=feedback_dict,
+organized_data_mean, organized_data, feature_dict, trial_time = sua_prep(subject, session, task, standardized_data,
+                                                                          event_lock, feature=feature, diagnostic=False)
+plot_signal_avg(organized_data_mean, subject, session, trial_time, labels=feature_dict,
                 extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
-dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, subject, session, event_lock,
+dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subject, session, event_lock,
                                  regularization_setting=regularization_setting)
 
 
 session2 = 'sess-2'
-organized_data_mean_2, organized_data_2, feedback_dict_2, trial_time_2 = sua_prep(subject, session2, standardized_data,
+organized_data_mean_2, organized_data_2, feature_dict_2, trial_time_2 = sua_prep(subject, session2, task,
+                                                                                  standardized_data,
                                                                                   event_lock, feature=feature)
-plot_signal_avg(organized_data_mean_2, subject, session2, trial_time, labels=feedback_dict,
+plot_signal_avg(organized_data_mean_2, subject, session2, trial_time, labels=feature_dict_2,
                 extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
-dpca_2, Z_2 = dpca_plot_analysis(organized_data_mean_2, organized_data_2, subject, session2, event_lock,
-                                 regularization_setting=regularization_setting)
+# dpca_2, Z_2 = dpca_plot_analysis(organized_data_mean_2, organized_data_2, feature_dict_2, subject, session2, event_lock,
+#                                  regularization_setting=regularization_setting)
 
 session3 = 'sess-3'
-organized_data_mean_3, organized_data_3, feedback_dict_3, trial_time_3 = sua_prep(subject, session3, standardized_data,
+organized_data_mean_3, organized_data_3, feature_dict_3, trial_time_3 = sua_prep(subject, session3, task,
+                                                                                  standardized_data,
                                                                                   event_lock, feature=feature)
-plot_signal_avg(organized_data_mean_3, subject, session3, trial_time, labels=feedback_dict,
+plot_signal_avg(organized_data_mean_3, subject, session3, trial_time, labels=feature_dict_3,
                 extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
-dpca_3, Z_3 = dpca_plot_analysis(organized_data_mean_3, organized_data_3, subject, session3, event_lock,
-                                 regularization_setting=regularization_setting)
+# dpca_3, Z_3 = dpca_plot_analysis(organized_data_mean_3, organized_data_3, feature_dict_3, subject, session3, event_lock,
+#                                  regularization_setting=regularization_setting)
 
 num_trials, num_neurons, num_cond, num_timepoints = organized_data.shape
 num_trials_2, num_neurons_2, _, _ = organized_data_2.shape
@@ -491,6 +543,11 @@ completed_data_set[0:num_trials, 0:num_neurons, :, :] = organized_data
 completed_data_set[0:num_trials_2, num_neurons:num_neurons+num_neurons_2, :, :] = organized_data_2
 completed_data_set[0:num_trials_3, num_neurons+num_neurons_2:, :, :] = organized_data_3
 session_all = 'sess-1, sess-2, and sess-3'
-dpca_all, Z_all = dpca_plot_analysis(completed_data_set_mean, completed_data_set, subject, session_all, event_lock,
-                                     regularization_setting=regularization_setting)
+if (feature_dict == feature_dict_2) and (feature_dict_2 == feature_dict_3):
+    print('Processing is the same across neurons')
+else:
+    warnings.warn("Feature dict not the same across datasets, DO NOT CONTINUE without fixing.")
+dpca_all, Z_all = dpca_plot_analysis(completed_data_set_mean, completed_data_set, feature_dict, subject, session_all,
+                                     event_lock,
+                                     regularization_setting=regularization_setting, labels=feature_dict_3)
 print('huh')
