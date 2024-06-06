@@ -484,6 +484,38 @@ def dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subjec
     return dpca, Z
 
 
+def merge_datasets(datasets, datasets_mean):
+    """
+    Merge two datasets to make it easier to run dPCA and population level analyses. Assumes that the size differences
+    are only in the first two axes. Each dataset is assumed to be in the following shape
+    num_trials X num_neurons X num_conditions X num_timepoints. therefore all datasets should have the same number of
+    conditions and timepoints.
+    :param datasets:
+    :param datasets_mean:
+    :return:
+    """
+    total_neurons = sum([datasets[i].shape[1] for i in range(len(datasets))])
+    max_trials_per_cond = np.max([datasets[i].shape[0] for i in range(len(datasets))])
+    _, _, num_cond, num_timepoints = datasets[0].shape
+    completed_data_set_mean = np.zeros((total_neurons,
+                                        num_cond, num_timepoints))
+    completed_data_set = np.zeros((max_trials_per_cond, total_neurons, num_cond, num_timepoints))
+    completed_data_set[completed_data_set == 0] = np.nan
+    completed_data_set_mean[completed_data_set_mean == 0] = np.nan
+    running_neuron_count = 0
+    for i in range(len(datasets)):
+        print(i)
+        num_trials, num_neurons, _, _ = datasets[i].shape
+        print(num_neurons)
+        print(num_trials)
+        completed_data_set[0:num_trials, running_neuron_count:
+                           running_neuron_count+num_neurons, :, :] = datasets[i]
+        completed_data_set_mean[running_neuron_count:
+                                running_neuron_count+num_neurons, :, :] = datasets_mean[i]
+        running_neuron_count += num_neurons
+    return completed_data_set, completed_data_set_mean
+
+
 session = 'sess-1'
 subject = 'IR95'
 task = 'wcst'
@@ -519,26 +551,11 @@ plot_signal_avg(organized_data_mean_3, subject, session3, trial_time, labels=fea
 # dpca_3, Z_3 = dpca_plot_analysis(organized_data_mean_3, organized_data_3, feature_dict_3, subject, session3, event_lock,
 #                                  regularization_setting=regularization_setting)
 
+completed_data_set, completed_data_set_mean = merge_datasets([organized_data, organized_data_2,
+                                                                          organized_data_3],
+                                                            [organized_data_mean, organized_data_mean_2,
+                                                             organized_data_mean_3])
 
-
-num_trials, num_neurons, num_cond, num_timepoints = organized_data.shape
-num_trials_2, num_neurons_2, _, _ = organized_data_2.shape
-num_trials_3, num_neurons_3, _, _ = organized_data_3.shape
-total_neurons = num_neurons_2+num_neurons_3+num_neurons
-max_trials_per_cond = np.max([num_trials_2, num_trials_3, num_trials])
-completed_data_set_mean = np.zeros((total_neurons,
-                                    num_cond, num_timepoints))
-completed_data_set_mean[completed_data_set_mean == 0] = np.nan
-completed_data_set_mean[0:num_neurons, :, :] = organized_data_mean
-completed_data_set_mean[num_neurons:num_neurons_2+num_neurons, :, :] = organized_data_mean_2
-completed_data_set_mean[num_neurons_2+num_neurons:, :, :] = organized_data_mean_3
-
-
-completed_data_set = np.zeros((max_trials_per_cond, total_neurons, num_cond, num_timepoints))
-completed_data_set[completed_data_set == 0] = np.nan
-completed_data_set[0:num_trials, 0:num_neurons, :, :] = organized_data
-completed_data_set[0:num_trials_2, num_neurons:num_neurons+num_neurons_2, :, :] = organized_data_2
-completed_data_set[0:num_trials_3, num_neurons+num_neurons_2:, :, :] = organized_data_3
 session_all = 'sess-1, sess-2, and sess-3'
 if (feature_dict == feature_dict_2) and (feature_dict_2 == feature_dict_3):
     print('Processing is the same across neurons')
