@@ -27,15 +27,107 @@
                 "photodiode_quality": "True",
                 "behavior_uploaded": "True",
                 "single_unit_uploaded": "True",
-                "photodiode_timestamps_acquired": "True",
+                "photodiode_timestamps_acquired": "True"
                 },
         "sess-2": {
                 "photodiode_quality": "True",
                 "photodiode_uploaded": "True",
                 "behavior_uploaded": "True",
                 "single_unit_uplaoded": "True",
-                "photodiode_timestamps_acquired": "True",
+                "photodiode_timestamps_acquired": "True"
+        },
+        "sess-1": {
+        }
+    },
+"IR82": {
+        "subjectid": "SBJ03",
+        "sess-1": {
+
+        },
+        "sess-2": {
 
         }
+
+        },
+        "IR84": {
+                "subjectid": "SBJ04",
+                "sess-1": {
+
+                },
+                "sess-2": {
+
+                },
+                "sess-3": {
+
+                }
+        },
+        "IR85": {
+                "subjectid": "SBJ05",
+                "sess-1": {
+
+                },
+                "sess-2": {
+
+                }
+        },
+        "IR86": {
+                "subjectid": "SBJ06",
+                "sess-1": {
+
+                }
+        },
+        "IR94": {
+                "subjectid": "SBJ07",
+                "sess-1": {
+
+                },
+                "sess-2": {
+
+                }
+        },
+        "IR98": {
+                "subjectid": "SBJ08",
+                "sess-1": {
+
+                },
+                "sess-2": {
+
+                },
+                "sess-3": {
+
+                }
+        },
+        "IR99": {
+                "subjectid": "SBJ09",
+                "sess-1": {
+
+                },
+                "sess-2": {
+
+                },
+                "sess-3": {
+
+                }
+        },
+        "IR100": {
+                "subjectid": "SBJ10",
+                "sess-1": {
+
+                },
+                "sess-2": {
+
+                },
+                "sess-3": {
+
+                }
+        },
+        "IR101": {
+                "subjectid": "SBJ11",
+                "sess-1": {
+
+                },
+                "sess-2": {
+
+                }
         }
 }
