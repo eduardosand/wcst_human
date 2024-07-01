@@ -27,16 +27,24 @@
                 "photodiode_quality": "True",
                 "behavior_uploaded": "True",
                 "single_unit_uploaded": "True",
+                "LFP_uploaded": "False",
                 "photodiode_timestamps_acquired": "True"
                 },
         "sess-2": {
                 "photodiode_quality": "True",
                 "photodiode_uploaded": "True",
                 "behavior_uploaded": "True",
-                "single_unit_uplaoded": "True",
+                "single_unit_uploaded": "True",
+                "LFP_uploaded": "False",
                 "photodiode_timestamps_acquired": "True"
         },
         "sess-1": {
+                "photodiode_quality": "True",
+                "photodiode_uploaded": "True",
+                "behavior_uploaded": "True",
+                "single_unit_uploaded": "False",
+                "LFP_uploaded": "False",
+                "photodiode_timestamps_acquired": "True"
         }
     },
 "IR82": {
