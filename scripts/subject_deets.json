@@ -3,22 +3,26 @@
         "sess-1": {
                 "neural_dir": "/home/knight/ecog/DATA_FOLDER/Irvine/IR87/Datafiles/MonAM/2019-02-11_14-26-44/",
                 "behavior_dir": "",
-                "event_filename": "Events.nev"
+                "event_filename": "Events.nev",
+                "SU_timestamps_file_generated": "True"
         },
         "sess-2": {
                 "neural_dir": "/home/knight/ecog/DATA_FOLDER/Irvine/IR87/Datafiles/WedPM/2019-02-13_15-05-45/",
                 "behavior_dir": "",
-                "event_filename": "Events.nev"
+                "event_filename": "Events.nev",
+                "SU_timestamps_file_generated": "True"
             },
         "sess-3": {
                 "neural_dir": "/home/knight/ecog/DATA_FOLDER/Irvine/IR87/Datafiles/ThuPM/2019-02-14_12-46-45/",
                 "behavior_dir": "",
-                "event_fsilename": ["Events.nev", "Events_00,nev"]
+                "event_fsilename": ["Events.nev", "Events_00,nev"],
+                "SU_timestamps_file_generated": "True"
             },
         "sess-4": {
                 "neural_dir": "/home/knight/ecog/DATA_FOLDER/Irvine/IR87/Datafiles/FriAM/2019-02-15_10-24-50/",
                 "behavior_dir": "",
-                "event_filename": "Events.nev"
+                "event_filename": "Events.nev",
+                "SU_timestamps_file_generated": "True"
             }
     },
 "IR95": {
@@ -28,6 +32,7 @@
                 "behavior_uploaded": "True",
                 "single_unit_uploaded": "True",
                 "LFP_uploaded": "False",
+                "SU_timestamps_file_generated": "True",
                 "photodiode_timestamps_acquired": "True"
                 },
         "sess-2": {
@@ -36,7 +41,8 @@
                 "behavior_uploaded": "True",
                 "single_unit_uploaded": "True",
                 "LFP_uploaded": "False",
-                "photodiode_timestamps_acquired": "True"
+                "photodiode_timestamps_acquired": "True",
+                "SU_timestamps_file_generated": "True"
         },
         "sess-1": {
                 "photodiode_quality": "True",
@@ -44,7 +50,8 @@
                 "behavior_uploaded": "True",
                 "single_unit_uploaded": "False",
                 "LFP_uploaded": "False",
-                "photodiode_timestamps_acquired": "True"
+                "photodiode_timestamps_acquired": "True",
+                "SU_timestamps_file_generated": "True"
         }
     },
 "IR82": {
@@ -60,60 +67,74 @@
         "IR84": {
                 "subjectid": "SBJ04",
                 "sess-1": {
+                "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-2": {
+                "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-3": {
+                "SU_timestamps_file_generated": "True"
 
                 }
         },
         "IR85": {
                 "subjectid": "SBJ05",
                 "sess-1": {
+                "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-2": {
+                "SU_timestamps_file_generated": "True"
 
                 }
         },
         "IR86": {
                 "subjectid": "SBJ06",
                 "sess-1": {
+                "SU_timestamps_file_generated": "True"
 
                 }
         },
         "IR94": {
                 "subjectid": "SBJ07",
                 "sess-1": {
+                "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-2": {
+                "SU_timestamps_file_generated": "True"
 
                 }
         },
         "IR98": {
                 "subjectid": "SBJ08",
                 "sess-1": {
+                "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-2": {
+                "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-3": {
+                "SU_timestamps_file_generated": "True"
 
                 }
         },
         "IR99": {
                 "subjectid": "SBJ09",
                 "sess-1": {
+                "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-2": {
+                "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-3": {
+                "SU_timestamps_file_generated": "True"
 
                 }
         },
@@ -123,9 +144,6 @@
 
                 },
                 "sess-2": {
-
-                },
-                "sess-3": {
 
                 }
         },
