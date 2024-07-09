@@ -3,7 +3,7 @@ import numpy as np
 from scipy.io import loadmat
 from intracranial_ephys_utils.load_data import read_file, get_file_info
 from intracranial_ephys_utils.manual_process import get_annotated_task_start_time
-from C_su_raster_plots import get_trial_wise_times, get_spike_rate_curves, plot_neural_spike_trains
+from C_su_raster_plots import get_trial_wise_spike_times, get_spike_rate_curves, plot_neural_spike_trains
 from behavior_analysis import process_wcst_behavior
 from pathlib import Path
 import pandas as pd
@@ -402,11 +402,11 @@ def sua_prep(subject, session, task, standardized_data=False, event_lock='Onset'
             avg_task_firing_rate = len(su_timestamps[np.logical_and(su_timestamps > start_time_sec,
                                                                     su_timestamps < end_time_sec)])/duration
             # print(avg_task_firing_rate)
-            # trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
+            # trial_wise_feedback_spikes = get_trial_wise_spike_times(su_timestamps, feedback_times, beh_data, tmin=-1., tmax=1.5)
             # Plot response in spikes of this one neuron relative to each onset event
             if avg_task_firing_rate > threshold_firing_rate:
                 labels.append(str(su_cluster_num))
-                trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, event_times, tmin=tmin_onset, tmax=tmax)
+                trial_wise_feedback_spikes = get_trial_wise_spike_times(su_timestamps, event_times, tmin=tmin_onset, tmax=tmax)
 
 
                 spike_trains_sorted, beh_conditions_sorted, change_indices = get_spike_rate_curves(trial_wise_feedback_spikes,
@@ -516,52 +516,57 @@ def merge_datasets(datasets, datasets_mean):
     return completed_data_set, completed_data_set_mean
 
 
-session = 'sess-1'
-subject = 'IR95'
-task = 'wcst'
-feature = 'rule dimension'
-standardized_data = False
-event_lock = 'Feedback'
-regularization_setting = 'auto'
+def main():
+    session = 'sess-1'
+    subject = 'IR95'
+    task = 'wcst'
+    feature = 'rule dimension'
+    standardized_data = False
+    event_lock = 'Feedback'
+    regularization_setting = 'auto'
 
-organized_data_mean, organized_data, feature_dict, trial_time = sua_prep(subject, session, task, standardized_data,
-                                                                          event_lock, feature=feature, diagnostic=False)
-plot_signal_avg(organized_data_mean, subject, session, trial_time, labels=feature_dict,
-                extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
-dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subject, session, event_lock,
-                                 regularization_setting=regularization_setting,
-                                 feature_names=[feature])
+    organized_data_mean, organized_data, feature_dict, trial_time = sua_prep(subject, session, task, standardized_data,
+                                                                             event_lock, feature=feature, diagnostic=False)
+    plot_signal_avg(organized_data_mean, subject, session, trial_time, labels=feature_dict,
+                    extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
+    dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subject, session, event_lock,
+                                     regularization_setting=regularization_setting,
+                                     feature_names=[feature])
 
 
-session2 = 'sess-2'
-organized_data_mean_2, organized_data_2, feature_dict_2, trial_time_2 = sua_prep(subject, session2, task,
-                                                                                  standardized_data,
-                                                                                  event_lock, feature=feature)
-plot_signal_avg(organized_data_mean_2, subject, session2, trial_time, labels=feature_dict_2,
-                extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
-# dpca_2, Z_2 = dpca_plot_analysis(organized_data_mean_2, organized_data_2, feature_dict_2, subject, session2, event_lock,
-#                                  regularization_setting=regularization_setting)
+    session2 = 'sess-2'
+    organized_data_mean_2, organized_data_2, feature_dict_2, trial_time_2 = sua_prep(subject, session2, task,
+                                                                                      standardized_data,
+                                                                                      event_lock, feature=feature)
+    plot_signal_avg(organized_data_mean_2, subject, session2, trial_time, labels=feature_dict_2,
+                    extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
+    # dpca_2, Z_2 = dpca_plot_analysis(organized_data_mean_2, organized_data_2, feature_dict_2, subject, session2, event_lock,
+    #                                  regularization_setting=regularization_setting)
 
-session3 = 'sess-3'
-organized_data_mean_3, organized_data_3, feature_dict_3, trial_time_3 = sua_prep(subject, session3, task,
-                                                                                  standardized_data,
-                                                                                  event_lock, feature=feature)
-plot_signal_avg(organized_data_mean_3, subject, session3, trial_time, labels=feature_dict_3,
-                extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
-# dpca_3, Z_3 = dpca_plot_analysis(organized_data_mean_3, organized_data_3, feature_dict_3, subject, session3, event_lock,
-#                                  regularization_setting=regularization_setting)
+    session3 = 'sess-3'
+    organized_data_mean_3, organized_data_3, feature_dict_3, trial_time_3 = sua_prep(subject, session3, task,
+                                                                                      standardized_data,
+                                                                                      event_lock, feature=feature)
+    plot_signal_avg(organized_data_mean_3, subject, session3, trial_time, labels=feature_dict_3,
+                    extra_string=f'Normalization = {standardized_data}, {event_lock}-locked')
+    # dpca_3, Z_3 = dpca_plot_analysis(organized_data_mean_3, organized_data_3, feature_dict_3, subject, session3, event_lock,
+    #                                  regularization_setting=regularization_setting)
 
-completed_data_set, completed_data_set_mean = merge_datasets([organized_data, organized_data_2,
-                                                                          organized_data_3],
-                                                            [organized_data_mean, organized_data_mean_2,
-                                                             organized_data_mean_3])
+    completed_data_set, completed_data_set_mean = merge_datasets([organized_data, organized_data_2,
+                                                                              organized_data_3],
+                                                                [organized_data_mean, organized_data_mean_2,
+                                                                 organized_data_mean_3])
 
-session_all = 'sess-1, sess-2, and sess-3'
-if (feature_dict == feature_dict_2) and (feature_dict_2 == feature_dict_3):
-    print('Processing is the same across neurons')
-else:
-    warnings.warn("Feature dict not the same across datasets, DO NOT CONTINUE without fixing.")
-dpca_all, Z_all = dpca_plot_analysis(completed_data_set_mean, completed_data_set, feature_dict, subject, session_all,
-                                     event_lock,
-                                     regularization_setting=regularization_setting, feature_names=[feature])
-print('huh')
+    session_all = 'sess-1, sess-2, and sess-3'
+    if (feature_dict == feature_dict_2) and (feature_dict_2 == feature_dict_3):
+        print('Processing is the same across neurons')
+    else:
+        warnings.warn("Feature dict not the same across datasets, DO NOT CONTINUE without fixing.")
+    dpca_all, Z_all = dpca_plot_analysis(completed_data_set_mean, completed_data_set, feature_dict, subject, session_all,
+                                         event_lock,
+                                         regularization_setting=regularization_setting, feature_names=[feature])
+    print('huh')
+
+
+if __name__ == "__main__":
+    main()
