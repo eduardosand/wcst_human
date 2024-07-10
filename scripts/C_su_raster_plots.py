@@ -20,7 +20,7 @@ def sort_spike_trains(spike_trains, beh_conditions):
     sorted_pairs = sorted(paired_list, key=lambda x: (x[1], x[2]))
     spike_trains_sorted = [sorted_pairs[i][0] for i in range(len(sorted_pairs))]
     beh_conditions_sorted = [sorted_pairs[i][1] for i in range(len(sorted_pairs))]
-    # Get the indices where sorted conditions change, useful for computing psths specific to conditions
+    # Get the indices where sorted conditions change, useful for computing PSTHs specific to conditions
     change_indices = np.where(np.array(beh_conditions_sorted)[:-1] != np.array(beh_conditions_sorted)[1:])[0]+1
     return spike_trains_sorted, beh_conditions_sorted, change_indices
 
@@ -114,10 +114,13 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
     ax.set_ylim([0, ymax])
 
 
-def get_trial_wise_times(su_timestamps, trial_times, tmin=-0.5, tmax=1.5):
+def get_trial_wise_spike_times(su_timestamps, trial_times, tmin=-0.5, tmax=1.5):
     """
     This function converts spike times in original timing to trial locked spike times using both
     timestamps, and behavioral data to check for valid trial.
+    More specifically, this function is converting the timestamps of each spike relative to all relevant trial times
+    Then for a single trial, we only grab those spikes that happened within a window. The caveat to this is that if we
+    make our tmin or tmax too large(absolutely), then we run the risk of using the same spikes across multiple times
     :param su_timestamps:
     :param trial_times:
     :param beh_data:
@@ -136,7 +139,6 @@ def get_trial_wise_times(su_timestamps, trial_times, tmin=-0.5, tmax=1.5):
                     ((single_trial_spikes > tmin) * (single_trial_spikes < tmax))]
         trial_wise_spikes.append(single_trial_spikes)
     return trial_wise_spikes
-
 
 # session = 'sess-4'
 # subject = 'IR87'
@@ -190,10 +192,10 @@ def main():
 
             fig, axs = plt.subplots(4, 3, sharey='row', sharex='col', figsize=(6, 6),
                                     gridspec_kw={'width_ratios': [1, 1, 0.4]})
-            trial_wise_feedback_spikes = get_trial_wise_times(su_timestamps, feedback_times, tmin=-1., tmax=1.5)
+            trial_wise_feedback_spikes = get_trial_wise_spike_times(su_timestamps, feedback_times, tmin=-1., tmax=1.5)
             # Plot response in spikes of this one neuron relative to each onset event
             tmin_onset = -0.5
-            trial_wise_onset_spikes = get_trial_wise_times(su_timestamps, onset_times, tmin=tmin_onset, tmax=1.5)
+            trial_wise_onset_spikes = get_trial_wise_spike_times(su_timestamps, onset_times, tmin=tmin_onset, tmax=1.5)
             for i in range(int(axs.shape[0]/2)):
                 axs[i * 2, 0].set_ylabel("Spiking")
                 axs[i * 2 + 1, 0].set_ylabel('Spike \n Counts')
