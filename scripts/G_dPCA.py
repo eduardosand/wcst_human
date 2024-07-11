@@ -456,15 +456,20 @@ def sua_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     return organized_data_mean, organized_data, feedback_dict, trial_time
 
 
-def dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subject, session, event_lock,
-                       regularization_setting='auto', feature_names=["No clue"]):
+def dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, subject, session, event_lock,
+                       regularization_setting='auto', feature_names=["No clue"], data_modality='Not given'):
     """
-    Put stuff here about plots, what kind of arrays these are etc
+    Function used for fitting dPCA and plotting some basic plots such as the components, their explained variance relative
+    to different versions of a more standard PCA.
+    :param organized_data_mean:
+    :param organized_data:
+    :param trial_time:
+    :param feature_dict:
     :param subject:
     :param session:
-    :param regularization_setting:
     :param event_lock:
-    :param standardized_data:
+    :param regularization_setting:
+    :param feature_names:
     :return:
     """
     n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
@@ -478,7 +483,7 @@ def dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subjec
     new_organized_data_frame.dropna(inplace=True, axis='columns')
     trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
     pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
-    suptitle = f'All single units {event_lock}-locked'
+    suptitle = f'All {data_modality} {event_lock}-locked'
     plot_dPCA_components(dpca, Z, trial_time, feature_dict, subject, session, suptitle,
                          labels=feature_dict, feature_names=feature_names)
     return dpca, Z
@@ -562,7 +567,7 @@ def main():
         print('Processing is the same across neurons')
     else:
         warnings.warn("Feature dict not the same across datasets, DO NOT CONTINUE without fixing.")
-    dpca_all, Z_all = dpca_plot_analysis(completed_data_set_mean, completed_data_set, feature_dict, subject, session_all,
+    dpca_all, Z_all = dpca_plot_analysis(completed_data_set_mean, completed_data_set, trial_time, feature_dict, subject, session_all,
                                          event_lock,
                                          regularization_setting=regularization_setting, feature_names=[feature])
     print('huh')
