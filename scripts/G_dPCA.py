@@ -99,7 +99,8 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     :param subject: (string) subject identifier
     :param session: (session) subject identifier
     :param trial_time: (array) The timepoints of what each sample in organized data mean corresponds to
-    :param feedback_locked:
+    :param labels:
+    :param extra_string:
     :return:
     """
     bin = 0.5
@@ -156,17 +157,19 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     plt.show()
 
 
-def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptitle,
+def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptitle, normalization,
                          labels=[], feature_names=[]):
     """
-    Plotting the dPCA components, and the features they correspond to.
-    :param dpca: dPCA object already fitted
+    Plotting the first major components of the dpca result
+    :param dpca:
     :param Z:
-    :param trial_time: (array) This is the x-axis for the plots, should correspond to event-locked time
+    :param trial_time:
     :param features:
     :param subject:
     :param session:
-    :param suptitle: (string) Title of the plot
+    :param suptitle:
+    :param normalization:
+    :param labels:
     :param feature_names:
     :return:
     """
@@ -265,11 +268,16 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
     plt.legend()
     # plt.xticks(time_ticks, time_tick_labels)
     plt.xlabel('Time (s)')
-    plt.suptitle(f' Subject {subject} - Session {session} \n {suptitle}')
+    if normalization:
+        plot_description = 'Data was standardized (zscore)'
+    else:
+        plot_description = 'Data was centered but not zscored'
+    plt.suptitle(f' Subject {subject} - Session {session} \n {suptitle} \n {plot_description}')
+    plt.tight_layout()
     plt.show()
 
 
-def pca_comparison(dpca, organized_data_mean , type):
+def pca_comparison(dpca, organized_data_mean, type):
     """
     My intuition with dPCA is that the components should be similar to normal PCA components but with the added
     benefit of labels. In this case the cumulative variance explained by PCA and dPCA should be comparable.
@@ -457,6 +465,7 @@ def sua_prep(subject, session, task, standardized_data=False, event_lock='Onset'
 
 
 def dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, subject, session, event_lock,
+                       normalization,
                        regularization_setting='auto', feature_names=["No clue"], data_modality='Not given'):
     """
     Function used for fitting dPCA and plotting some basic plots such as the components, their explained variance relative
@@ -468,6 +477,7 @@ def dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_
     :param subject:
     :param session:
     :param event_lock:
+    :param normalization:
     :param regularization_setting:
     :param feature_names:
     :return:
@@ -484,7 +494,7 @@ def dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_
     trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
     pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
     suptitle = f'All {data_modality} {event_lock}-locked'
-    plot_dPCA_components(dpca, Z, trial_time, feature_dict, subject, session, suptitle,
+    plot_dPCA_components(dpca, Z, trial_time, feature_dict, subject, session, suptitle, normalization,
                          labels=feature_dict, feature_names=feature_names)
     return dpca, Z
 
