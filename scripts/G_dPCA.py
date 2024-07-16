@@ -90,115 +90,88 @@ def featurize(epochs_object, feature, norm=False):
 
 
 def plot_signal_avg(organized_data_mean, subject, session, trial_time,
-                    labels=[], extra_string='', signal_names=[]):
+                    labels=None, extra_string='', signal_names=None):
     """
-    This is a sanity function. After featurizing the data and computing signal average for each condition for each electrode,
-    this will plot it. Note this function is a work in progress, and odds are that the False feedback_locked mode should
-    be looked at and fixed.
-    :param organized_data_mean: (array) we expect to be of the shape n_electrodes/neurons X n_conditions X n_timepoints
-    :param subject: (string) subject identifier
-    :param session: (session) subject identifier
-    :param trial_time: (array) The timepoints of what each sample in organized data mean corresponds to
-    :param labels: feature labels
-    :param extra_string:
-    :return:
+    Plots average signal for each condition and electrode
+    :param organized_data_mean: (ndarray): Shape (n_electrodes, n_conditions, n_timepoints).
+    :param subject: (str): subject identifier
+    :param session: (str): subject identifier
+    :param trial_time: (ndarray): Timepoints corresponding to each sample in organized_data_mean. Shape (n_timepoints,)
+    :param labels: (dictionary, optional): feature labels for the conditions. Defaults to numerical labels.
+    :param extra_string: (str, optional): Additional string to include in the plot title.
+    :param signal_names: (list, optional): Names of the signals/electrodes, Defaults to None.
+    :returns: None
     """
-    bin = 0.5
+    binsize = 0.5
     min_multiple = np.min(trial_time) // 0.5
-    # pad = 0.2
-    time_ticks = np.arange(min_multiple*bin, np.max(trial_time), step=0.5)
+    time_ticks = np.arange(min_multiple*binsize, np.max(trial_time), step=0.5)
     time_tick_labels = time_ticks
-    # time_ticks = np.linspace(0, (abs(baseline_start)+tmax-pad)*fs, 7)
-    # time_tick_labels = np.linspace(baseline_start, tmax-pad, 7)
-    # x_zero = np.where(time_tick_labels == 0.)
-    # time_tick_labels = np.insert(time_tick_labels, 0, baseline_start)
     time_tick_labels = [f'{i:.1f}' for i in time_tick_labels]
 
     n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
-    # if n_electrodes % 2 == 1:
-    #     n_plots = n_electrodes + 1
-    # else:
-    #     n_plots = n_electrodes
 
-
-    if len(labels) == 0:
-        labels = np.arange(n_cond)
-    else:
-        print(labels)
+    if labels is None:
+        labels = dict(zip(np.arange(n_cond), np.arange(n_cond)))
 
     if len(labels) == 3:
         color_dict = dict(zip(labels, ['red', 'green', 'blue']))
     elif len(labels) == 2:
         color_dict = dict(zip(labels, ['purple', 'orange']))
-    print(color_dict)
-    custom_legend = [
-        plt.Line2D([0], [0], color=color_dict[label], lw=2, label=labels[label]) for label in labels
-        ]
-    # current new version, only plot 20
+    else:
+        color_palette = ['red', 'green', 'blue', 'purple', 'orange', 'cyan', 'magenta', 'yellow']
+        color_dict = dict(zip(labels, color_palette[:len(labels)]))
+
+    if signal_names is None:
+        signal_names = [f'Signal {i}' for i in range(organized_data_mean.shape[0])]
+
+    # Calculate the maximum label length to adjust the right margin dynamically
+    max_label_length = max(len(str(label)) for label in labels.values())
+    right_margin = 0.7 + max_label_length * 0.01
+
     n_plots = 10
     count = 0
     ncols = 2
     nrows = 5
-    fig, ax = plt.subplots(nrows, ncols)
+    fig, ax = plt.subplots(nrows, ncols, figsize=(7, 5))
+
     for ind in range(n_electrodes):
         # make a new plot every 10 signals
         if ind % n_plots == 0 and ind != 0:
-            # fake_ax = ax[:, 2]
-            # for ax_curr in fake_ax:
-            #     ax_curr.axis('off')  # Hide the axis
-            bottom_ax = ax[-1, :]
-            for ax_curr in bottom_ax:
+            for ax_curr in ax[-1, :]:
                 ax_curr.set_xlabel('Time (s)')
                 ax_curr.set_xticks(time_ticks, time_tick_labels)
-            # ax[3, -1].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5), ncol=1)  # Adjust the position as needed
+
             plt.suptitle(f'Mean Activity of SU \n {subject} - session {session} \n {extra_string}')
-            # plt.legend()
-            # plt.tight_layout()
-            plt.subplots_adjust(hspace=0.7, wspace=0.25, top=0.8, right=0.8, left=0.1)
-            # fig.legend(handles=custom_legend, loc='upper center', bbox_to_anchor=(1.05, 0.5), ncol=1)
-            # plt.tight_layout()
+            plt.subplots_adjust(hspace=0.7, wspace=0.25, top=0.82, right=right_margin, left=0.1)
+
             # we're plotting the same thing in each subplot, so only grab labels for one plot
             lines, labels = ax[0, 0].get_legend_handles_labels()
-
             fig.legend(lines, labels, loc='right', ncol=1)
             plt.show()
-            fig, ax = plt.subplots(nrows, ncols)
+
+            fig, ax = plt.subplots(nrows, ncols, figsize=(7, 5))
             count = 0
-        # if count % n_plots == 0:
-        print(ind)
-        print(ind//2)
-        print(ind%2)
+
         ax_curr = ax[count//2, count % 2]
-    # for ind, ax_curr in enumerate(ax.flatten()):
-    #     if ind >= n_electrodes:
-    #         ax.flatten()[ind-2].set_xlabel('Time (s)')
-    #         ax.flatten()[ind-2].set_xticks(time_ticks, time_tick_labels)
-    #         continue
         for cond in range(n_cond):
             ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond], color=color_dict[cond])
-
             ax_curr.axvline(0, linestyle='--', c='black')
             ax_curr.set_title(signal_names[ind])
             ax_curr.set_xlabel('')
             ax_curr.set_xticks([])
         count += 1
-        # if ind in np.arange(n_plots-ncols, n_plots):
-        #     ax_curr.set_xlabel('Time (s)')
-        #     ax_curr.set_xticks(time_ticks, time_tick_labels)
-                # Create a summarized legend
-    # if n_plots > n_electrodes:
-    #     ax.flatten()[-1].axis('off')  # Hide the axis
-    fake_ax = ax[:, 2]
-    for ax_curr in fake_ax:
-        ax_curr.axis('off')  # Hide the axis
-    bottom_ax = ax[-1, :]
-    for ax_curr in bottom_ax:
+
+    for ax_curr in ax[-1, :]:
         ax_curr.set_xlabel('Time (s)')
         ax_curr.set_xticks(time_ticks, time_tick_labels)
-    fig.legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5), ncol=1)  # Adjust the position as needed
+
     plt.suptitle(f'Mean Activity of SU \n {subject} - session {session} \n {extra_string}')
-    # plt.legend()
-    # plt.tight_layout()
+    plt.subplots_adjust(hspace=0.7, wspace=0.25, top=0.82, right=right_margin, left=0.1)
+
+    # we're plotting the same thing in each subplot, so only grab labels for one plot
+    lines, labels = ax[0, 0].get_legend_handles_labels()
+    fig.legend(lines, labels, loc='right', ncol=1)
+
     plt.show()
 
 
