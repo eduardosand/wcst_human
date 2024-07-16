@@ -44,8 +44,15 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     onset_times = beh_timestamps['Onset (seconds)']
     if event_lock == 'Onset':
         event_times = onset_times
+        tmax = 1.5
+        tmin = -1
+        baseline = (-1, 0)
     elif event_lock == 'Feedback':
         event_times = feedback_times
+        tmin= -1.5
+        # tmax = max_rt+1.5
+        tmax = 2.
+        baseline = (-2, -1.5)
 
     # global t-start
     reader = read_file(ph_file_path)
@@ -95,6 +102,7 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     max_rt = max(beh_data['response_time'])
 
     if feature == 'correct':
+        beh_data["correct"] = np.where(beh_data["correct"] == 0, 'incorrect', 'correct')
         feature_values = beh_data['correct']
     elif feature == 'rule dimension':
         feature_values = beh_data['rule dimension']
@@ -114,9 +122,6 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
                        and not electrode_name.startswith('mic')]
 
     microwire_dataset = dataset[microwire_ind, :]
-    tmin_onset = -1
-    # tmax = max_rt+1.5
-    tmax = 1.5
 
     # our .csv file containing timestamps does have it in terms of samples but expecting sampling rate of photodiode
     # which has now been perturbed
@@ -128,9 +133,10 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     # stimulus_onset = ph_onset_trials[~np.isnan(padded_rts)] / ph_sample_rate * fs
     # feedback_onset = ph_offset_button_press[~np.isnan(padded_rts)] / ph_sample_rate * fs
     print('Converted event times')
-    epochs_object = make_trialwise_data(event_times_converted, microwire_names, sampling_rate, microwire_dataset, tmin=tmin_onset,
+    epochs_object = make_trialwise_data(event_times_converted, microwire_names, sampling_rate, microwire_dataset,
+                                        tmin=tmin,
                                         tmax=tmax,
-                                        baseline=(-1, 0))
+                                        baseline=baseline)
     epochs_dataset = epochs_object.get_data()
     # photodiode_ind = np.where(electrode_names == 'photo1')[0][0]
     print(epochs_object.drop_log)
@@ -139,7 +145,7 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     binsize = 0.1
     step = 0.05
 
-    trial_time = np.arange(tmin_onset+step, tmax, step)
+    trial_time = np.arange(tmin+step, tmax, step)
     n_trials = len(beh_data['correct'])
     smoothed_data, fs = smooth_data(epochs_dataset, sampling_rate, binsize, step)
 
@@ -152,30 +158,50 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     # baselining is a problem
     organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, feature_values,
                                                                    norm=standardized_data)
-    return organized_data_mean, organized_data, feedback_dict, trial_time
+    return organized_data_mean, organized_data, feedback_dict, trial_time, microwire_names
 
 
-# plan
-# this code will load in the dataset we downloaded, and attempt to fit a simple dPCA model using just the feedback
-# signal
-test_subject = 'IR95'
-test_session = 'sess-3'
-task = 'wcst'
-bp = 1000
-event_lock = 'Feedback'
-feature = 'correct'
-standardized_data = False
-regularization_setting = 'auto'
+def main():
+    # plan
+    # this code will load in the dataset we downloaded, and attempt to fit a simple dPCA model using just the feedback
+    # signal
+    test_subject = 'IR95'
+    test_session = 'sess-3'
+    task = 'wcst'
+    bp = 1000
+    event_lock = 'Feedback'
+    feature = 'correct'
+    standardized_data = False
+    # regularization_setting = 'auto'
+    regularization_setting = None
+    organized_data_mean, organized_data, feedback_dict, trial_time, microwire_names = lfp_prep(test_subject, test_session,
+                                                                                               task, event_lock=event_lock,
+                                                                                               feature=feature,
+                                                                                               standardized_data=standardized_data)
+    feature_dict = feedback_dict
 
-organized_data_mean, organized_data, feedback_dict, trial_time = lfp_prep(test_subject, test_session, task,
-                                                              event_lock=event_lock, feature=feature,
-                                                                          standardized_data=standardized_data)
-print(organized_data_mean)
-feature_dict = feedback_dict
-
-# suptitle=f'All microwires, bandpassed at {bp}, {lock}-locked'
-plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
-                    extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
-dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, test_subject, test_session, event_lock,
+    # suptitle=f'All microwires, bandpassed at {bp}, {lock}-locked'
+    plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
+                        extra_string=f'Normalization = {standardized_data} {event_lock}-lock', signal_names=microwire_names)
+    dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, test_subject,
+                                     test_session, event_lock, standardized_data,
                                      regularization_setting=regularization_setting,
                                      feature_names=[feature], data_modality='Microwire broadband')
+
+    standardized_data = True
+    organized_data_mean, organized_data, feedback_dict, trial_time, microwire_names = lfp_prep(test_subject, test_session, task,
+                                                                              event_lock=event_lock, feature=feature,
+                                                                              standardized_data=standardized_data)
+    feature_dict = feedback_dict
+
+    # suptitle=f'All microwires, bandpassed at {bp}, {lock}-locked'
+    plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
+                        extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
+    dpca_2, Z_2 = dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, test_subject,
+                                     test_session, event_lock, standardized_data,
+                                     regularization_setting=regularization_setting,
+                                     feature_names=[feature], data_modality='Microwire broadband')
+
+
+if __name__ == "__main__":
+    main()
