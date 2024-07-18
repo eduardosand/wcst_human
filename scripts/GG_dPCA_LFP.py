@@ -4,14 +4,14 @@ from pathlib import Path
 from intracranial_ephys_utils.load_data import read_file, get_file_info
 from intracranial_ephys_utils.preprocess import make_trialwise_data, smooth_data
 from behavior_analysis import process_wcst_behavior
-from G_dPCA import featurize, plot_signal_avg, dpca_plot_analysis
+from G_dPCA import featurize, plot_signal_avg, dpca_plot_analysis, trial_wise_processing
 import re
 import pandas as pd
 import mne
 
 
 def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset', feature='correct',
-             diagnostic=False):
+             for_dpca=False):
     """
     Prepare biopotential data for further analyses. Expects preprocessed bandpassed signal at sampling rate of 1000.
     From here, we'd like to find the onsets of the trials and smooth over them as in Hoy et. al.
@@ -23,6 +23,7 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     :param feature:
     :param frequency_cutoff:
     :param diagnostic:
+    :param for_dpca: (optional)
     :return:
     """
 
@@ -49,10 +50,9 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
         baseline = (-1, 0)
     elif event_lock == 'Feedback':
         event_times = feedback_times
-        tmin= -1.5
-        # tmax = max_rt+1.5
-        tmax = 2.
-        baseline = (-2, -1.5)
+        tmin = -0.5
+        tmax = 2.5
+        baseline = (2., 2.5)
 
     # global t-start
     reader = read_file(ph_file_path)
@@ -85,11 +85,12 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
         # Assume all these electrodes are numbered from 1 - end, with 1 being the tip(deepest part of the brain).
         num_contacts = electrode_names_fixed.split(" ").count(probe)
         if probe.startswith('m'):
-            continue
             # common average reference for microwires
-            micro_contacts = [ind for ind, val in enumerate(electrode_names) if val.startswith('mLAM')]
+            micro_contacts = [ind for ind, val in enumerate(electrode_names) if val.startswith(probe)]
+            # print(micro_contacts)
             common_avg_ref = np.average(dataset[micro_contacts, :], axis=0)
             dataset[micro_contacts, :] -= common_avg_ref
+            continue
         elif num_contacts > 1:
             # bipolar reference for everything else
             for contact_num in range(num_contacts - 1):
@@ -158,7 +159,12 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     # baselining is a problem
     organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, feature_values,
                                                                    norm=standardized_data)
-    return organized_data_mean, organized_data, feedback_dict, trial_time, microwire_names
+    if not for_dpca:
+        zscored_data = trial_wise_processing(epochs_object, norm=standardized_data)
+        print(zscored_data.shape)
+    else:
+        zscored_data = organized_data
+    return organized_data_mean, zscored_data, feedback_dict, trial_time, microwire_names, feature_values
 
 
 def main():
