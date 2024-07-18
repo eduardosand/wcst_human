@@ -9,11 +9,11 @@ from pathlib import Path
 import pandas as pd
 import scipy
 import matplotlib.pyplot as plt
-import matplotlib
 import mne
 from dPCA import dPCA
 from sklearn.decomposition import PCA
 import warnings
+from sklearn.preprocessing import StandardScaler
 
 
 def gaussian_smooth(spike_trains_sorted, sigma, step):
@@ -36,7 +36,7 @@ def featurize(epochs_object, feature, norm=False):
     This functions assumes mne epochs_object is provided which is set up as
     n_epochs(trials) X n_electrodes(observations) X n_timepoints(observations in time)
     :param epochs_object: MNE epochs object. The data in this object should be n_trials X n_electrodes X n_timepoints
-    :param feature:
+    :param feature: (np.array) size (n_epochs, )
     :param norm:
     :return:
     """
@@ -87,6 +87,21 @@ def featurize(epochs_object, feature, norm=False):
         organized_data_mean = np.nanmean(organized_data, axis=0)
         organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
     return organized_data_mean, organized_data, inv_feature_dict
+
+
+def trial_wise_processing(epochs_object, norm=True):
+    """
+    Concatenates data trial-wise and centers/zscores it
+    :param epochs_object: MNE object that contains the trialwise data
+    :param norm:  determines whether to zscore the data
+    :return:
+    """
+    epochs_dataset = epochs_object.get_data(copy=True)
+    n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
+    concatenated_data = np.transpose(epochs_dataset, axes=(1, 0, 2)).reshape(n_electrodes, -1)
+    ss = StandardScaler(with_mean=True, with_std=norm)
+    zscored_concatenated_data = ss.fit_transform(concatenated_data).T
+    return zscored_concatenated_data
 
 
 def plot_signal_avg(organized_data_mean, subject, session, trial_time,
@@ -155,10 +170,11 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
         ax_curr = ax[count//2, count % 2]
         for cond in range(n_cond):
             ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond], color=color_dict[cond])
-            ax_curr.axvline(0, linestyle='--', c='black')
-            ax_curr.set_title(signal_names[ind])
-            ax_curr.set_xlabel('')
-            ax_curr.set_xticks([])
+        ax_curr.axvspan(0.3, 0.6, color='grey', alpha=0.3)
+        ax_curr.axvline(0, linestyle='--', c='black')
+        ax_curr.set_title(signal_names[ind])
+        ax_curr.set_xlabel('')
+        ax_curr.set_xticks([])
         count += 1
 
     for ax_curr in ax[-1, :]:
@@ -300,14 +316,16 @@ def pca_comparison(dpca, organized_data_mean, type):
     My intuition with dPCA is that the components should be similar to normal PCA components but with the added
     benefit of labels. In this case the cumulative variance explained by PCA and dPCA should be comparable.
     # This function plots both to allow for this comparison.
-    :param dpca:
+    :param dpca: dpca object, needed to access explained variance (warning, the github repo for the python
+    implementation calculates this incorrectly, more details here https://github.com/machenslab/dPCA/issues/32
     :param organized_data_mean:
     :return:
     """
     pca = PCA()
     pca.fit(organized_data_mean.reshape(organized_data_mean.shape[0], -1))
     fig = plt.figure()
-    dpca_explained_var_ratios = np.array([dpca.explained_variance_ratio_[key] for key in dpca.explained_variance_ratio_.keys()]).flatten()
+    dpca_explained_var_ratios = np.array([dpca.explained_variance_ratio_[key] for key in
+                                          dpca.explained_variance_ratio_.keys()]).flatten()
     dpca_explained_var_ratios.sort()
     dpca_explained_var_ratios = np.flip(dpca_explained_var_ratios)
     plt.plot(np.cumsum(pca.explained_variance_ratio_[0:len(dpca_explained_var_ratios)]), label='PCA')
@@ -498,6 +516,7 @@ def dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_
     :param normalization:
     :param regularization_setting:
     :param feature_names:
+    :param data_modality:
     :return:
     """
     n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
@@ -559,7 +578,8 @@ def main():
     regularization_setting = 'auto'
 
     organized_data_mean, organized_data, feature_dict, trial_time = sua_prep(subject, session, task, standardized_data,
-                                                                             event_lock, feature=feature, diagnostic=False)
+                                                                             event_lock, feature=feature,
+                                                                             diagnostic=False)
     plot_signal_avg(organized_data_mean, subject, session, trial_time, labels=feature_dict,
                     extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
     dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, feature_dict, subject, session, event_lock,
