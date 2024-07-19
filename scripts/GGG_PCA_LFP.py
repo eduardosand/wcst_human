@@ -18,6 +18,9 @@ organized_data_mean, organized_data, feedback_dict, trial_time, microwire_names,
                                                                                            task, event_lock=event_lock,
                                                                                            feature=feature,
                                                                                            standardized_data=standardized_data)
+
+# get rid of the baseline period, NOTE this assumes that we're using feedback locked time periods, and ITI, which will
+# change for other analyses
 n_neurons, n_cond, n_timepoints = organized_data_mean.shape
 feature_dict = feedback_dict
 
@@ -48,10 +51,39 @@ trialwise_pc_names = [f'average trialwise_PC_{i+1}: {pca_trialwise.explained_var
 plot_signal_avg(mean_loadings, test_subject, test_session, trial_time, labels=feedback_dict,
                 extra_string=f'Normalization = {standardized_data} {event_lock}-lock', signal_names=trialwise_pc_names)
 
+
+def mean_diff_statistic(x, y, axis):
+    return np.abs(np.mean(x, axis=axis) - np.mean(y, axis=axis))
+
+
+from scipy.stats import permutation_test
+# because our statistic is vectorized, we pass `vectorized=True`
+# `n_resamples=np.inf` indicates that an exact test is to be performed
 # We'd like to do a permutation test over each timepoint
+# No way to make this cleanly, but with two conditions for features, it's straightforward
+rng = np.random.default_rng()
+# only check on the first 10 components
+n_pc_analyzed = 10
+# don't check baseline
+n_timepoints_check = int(sum(trial_time < 2.))
 
+pvalues_uncorr = np.ones((n_pc_analyzed, 1, n_timepoints_check))
+for i in range(n_pc_analyzed):
+    for j in range(n_timepoints_check):
+        res = permutation_test((trial_wise_loadings[i, feature_values == feature_dict[0], j],
+                                trial_wise_loadings[i, feature_values == feature_dict[1], j]), mean_diff_statistic,
+                                vectorized=True,
+                                n_resamples=99999, alternative='greater', random_state=rng)
+        pvalues_uncorr[i, 0, j] = res.pvalue
 
+print(np.sum(pvalues_uncorr.flatten() < 0.05))
+import scipy.stats
+pvalues_corr = scipy.stats.false_discovery_control(pvalues_uncorr.flatten(), method='bh')
+print(np.sum(pvalues_corr < 0.05))
+pvalues_corr = pvalues_corr.reshape(n_pc_analyzed, 1, n_timepoints_check)
 
+pvalues_final = np.ones((n_neurons,1,n_timepoints))
+pvalues_final[:n_pc_analyzed, 0, :n_timepoints_check] = pvalues_corr
 # mean_data_p = pca.fit_transform(organized_data_mean.reshape(organized_data_mean.shape[0], -1))
 # what is Xa.T? What is dimensionality?
 
