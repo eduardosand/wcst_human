@@ -105,7 +105,7 @@ def trial_wise_processing(epochs_object, norm=True):
 
 
 def plot_signal_avg(organized_data_mean, subject, session, trial_time,
-                    labels=None, extra_string='', signal_names=None):
+                    labels=None, extra_string='', signal_names=None, pvalues=None):
     """
     Plots average signal for each condition and electrode
     :param organized_data_mean: (ndarray): Shape (n_electrodes, n_conditions, n_timepoints).
@@ -115,6 +115,8 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     :param labels: (dictionary, optional): feature labels for the conditions. Defaults to numerical labels.
     :param extra_string: (str, optional): Additional string to include in the plot title.
     :param signal_names: (list, optional): Names of the signals/electrodes, Defaults to None.
+    :param pvalues: (ndarray): Shape (n_electrodes, 1, n_timepoints): Gives pvalues using permutation test to check for
+    differences. Allows for visualization of significant pvalues. Defaults to None.
     :returns: None
     """
     binsize = 0.5
@@ -122,7 +124,7 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     time_ticks = np.arange(min_multiple*binsize, np.max(trial_time), step=0.5)
     time_tick_labels = time_ticks
     time_tick_labels = [f'{i:.1f}' for i in time_tick_labels]
-
+    time_diff = np.diff(trial_time)
     n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
 
     if labels is None:
@@ -170,6 +172,10 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
         ax_curr = ax[count//2, count % 2]
         for cond in range(n_cond):
             ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond], color=color_dict[cond])
+        if pvalues is not None:
+            for t in range(len(pvalues[ind, 0, :])):
+                if pvalues[ind, 0, t] < 0.05:
+                    ax_curr.axvspan(trial_time[t]-time_diff[t-1]/2, trial_time[t]+time_diff[t]/2, color='red', alpha=0.3)
         ax_curr.axvspan(0.3, 0.6, color='grey', alpha=0.3)
         ax_curr.axvline(0, linestyle='--', c='black')
         ax_curr.set_title(signal_names[ind])
