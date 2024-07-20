@@ -52,7 +52,7 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
         event_times = feedback_times
         tmin = -0.5
         tmax = 2.5
-        baseline = (2., 2.5)
+        baseline = (2, 2.5)
 
     # global t-start
     reader = read_file(ph_file_path)
