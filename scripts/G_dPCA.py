@@ -115,7 +115,7 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     :param labels: (dictionary, optional): feature labels for the conditions. Defaults to numerical labels.
     :param extra_string: (str, optional): Additional string to include in the plot title.
     :param signal_names: (list, optional): Names of the signals/electrodes, Defaults to None.
-    :param pvalues: (ndarray): Shape (n_electrodes, 1, n_timepoints): Gives pvalues using permutation test to check for
+    :param pvalues: (ndarray): Shape (n_electrodes, n_timepoints): Gives pvalues using permutation test to check for
     differences. Allows for visualization of significant pvalues. Defaults to None.
     :returns: None
     """
@@ -173,9 +173,10 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
         for cond in range(n_cond):
             ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond], color=color_dict[cond])
         if pvalues is not None:
-            for t in range(len(pvalues[ind, 0, :])):
-                if pvalues[ind, 0, t] < 0.05:
-                    ax_curr.axvspan(trial_time[t]-time_diff[t-1]/2, trial_time[t]+time_diff[t]/2, color='red', alpha=0.3)
+            for t in range(len(pvalues[ind, :])):
+                if pvalues[ind, t] < 0.05:
+                    ax_curr.axvspan(trial_time[t]-time_diff[t-1]/2, trial_time[t]+time_diff[t]/2, color='red',
+                                    alpha=0.3)
         ax_curr.axvspan(0.3, 0.6, color='grey', alpha=0.3)
         ax_curr.axvline(0, linestyle='--', c='black')
         ax_curr.set_title(signal_names[ind])
