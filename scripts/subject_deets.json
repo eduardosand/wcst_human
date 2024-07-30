@@ -33,7 +33,9 @@
                 "single_unit_uploaded": "True",
                 "LFP_uploaded": "False",
                 "SU_timestamps_file_generated": "True",
-                "photodiode_timestamps_acquired": "True"
+                "photodiode_timestamps_acquired": "True",
+                "dropped_electrodes": ["mLAC3", "mLAM8", "mLHH1", "mLTH1", "mLOF1", "mLOF2", "mLOF3", "mLOF4",
+                "mLOF5", "mLOF6", "mLOF7", "mLOF8"]
                 },
         "sess-2": {
                 "photodiode_quality": "True",
