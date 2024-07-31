@@ -563,10 +563,7 @@ def merge_datasets(datasets, datasets_mean):
     completed_data_set_mean[completed_data_set_mean == 0] = np.nan
     running_neuron_count = 0
     for i in range(len(datasets)):
-        print(i)
         num_trials, num_neurons, _, _ = datasets[i].shape
-        print(num_neurons)
-        print(num_trials)
         completed_data_set[0:num_trials, running_neuron_count:
                            running_neuron_count+num_neurons, :, :] = datasets[i]
         completed_data_set_mean[running_neuron_count:
