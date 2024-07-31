@@ -65,17 +65,36 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     full_dataset = np.load(dataset_path)
     print('dataset loaded')
     dataset = full_dataset['dataset'][:-1, :]
-    timestamps = full_dataset['dataset'][-1, :] # this should be in seconds from start of recording(start of file)
+    timestamps = full_dataset['dataset'][-1, :]  # this should be in seconds from start of recording(start of file)
     fs = full_dataset['eff_fs'][:-1]
     electrode_names = full_dataset['electrode_names'][:-1]
+
+    # dropped_electrodes =
+    import json
+    file_path = Path(f'{os.pardir}/scripts/subject_deets.json')
+    with open(file_path) as json_data:
+        sbj_metadata = json.load(json_data)
+    dropped_electrodes = sbj_metadata[subject][session]['dropped_electrodes']
+    # prior to dropping
+    print(dataset.shape)
+
+
     # issue with electrode_names is sometimes there's an extra ending to denote the recording number, it should be
     # present on all channels so we get rid of it by using the first name
     stems = electrode_names[0].split("_")
 
     # Now we have the dataset, next step is to rereference
     electrode_names_str = " ".join(electrode_names)
+
     electrode_names_str = re.sub(f"_{stems[-1]}", "", electrode_names_str)
     electrode_names = np.array(electrode_names_str.split(" "))
+    # get index for which electrodes should be dropped
+    electrodes_ind = [ind for ind in range(electrode_names.size) if electrode_names[ind] not in dropped_electrodes]
+    electrode_names = electrode_names[electrodes_ind]
+    dataset = dataset[electrodes_ind, :]
+    print('dropping reference electrodes')
+    print(dataset.shape)
+
     # electrode_names_str = re.sub("m.... ", "", electrode_names_str)
     electrode_names_fixed = re.sub("\d+", "", electrode_names_str)
     skippables = ['spk', 'mic', 'eye']
