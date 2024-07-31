@@ -11,7 +11,7 @@ import mne
 
 
 def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset', feature='correct',
-             for_dpca=False):
+             for_dpca=False, baseline=(-0.5, 0)):
     """
     Prepare biopotential data for further analyses. Expects preprocessed bandpassed signal at sampling rate of 1000.
     From here, we'd like to find the onsets of the trials and smooth over them as in Hoy et. al.
@@ -24,6 +24,7 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     :param frequency_cutoff:
     :param diagnostic:
     :param for_dpca: (optional)
+    :param baseline: (optional) helpful for toying with baselines
     :return:
     """
 
@@ -47,17 +48,17 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
         event_times = onset_times
         tmax = 1.5
         tmin = -1
-        baseline = (-1, 0)
+        baseline = baseline
     elif event_lock == 'Feedback':
         event_times = feedback_times
         tmin = -0.5
         tmax = 2.5
-        baseline = (2, 2.5)
+        baseline = baseline
 
     # global t-start
     reader = read_file(ph_file_path)
     reader.parse_header()
-    start_record = reader.global_t_start
+    # start_record = reader.global_t_start
 
     bp = 1000
     processed_data_directory = data_directory / 'preprocessed'
@@ -97,7 +98,7 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
 
     # electrode_names_str = re.sub("m.... ", "", electrode_names_str)
     electrode_names_fixed = re.sub("\d+", "", electrode_names_str)
-    skippables = ['spk', 'mic', 'eye']
+    skippables = ['spk', 'mic', 'eye', 'photo']
     for probe in set(electrode_names_fixed.split(" ")):
         if probe in skippables:
             continue
@@ -119,7 +120,20 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
                 dataset[electrode_ind, :] -= dataset[next_electrode_ind, :]
             continue
 
-    max_rt = max(beh_data['response_time'])
+
+    # following rereferencing we'll band pass filter and notch filtering to remove HF noise and power line noise for both
+    # macrocontacts and microwires
+    h_freq = 250
+    l_freq = 1
+    neural_ind = [i for i, element in enumerate(electrode_names) if not any(element.startswith(skip) for skip in skippables)]
+    filtered_neural_data = mne.filter.filter_data(dataset[neural_ind], fs[0], l_freq, h_freq)
+
+    # notch filter
+    filtered_neural_data = mne.filter.notch_filter(filtered_neural_data, fs[0], np.arange(60, 241, 60))
+
+    # cast this data back to dataset array
+    dataset[neural_ind] = filtered_neural_data
+
 
     if feature == 'correct':
         beh_data["correct"] = np.where(beh_data["correct"] == 0, 'incorrect', 'correct')
@@ -150,9 +164,6 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
     assert len(set(fs)) == 1
     sampling_rate = fs[0]
     event_times_converted = ((event_times.copy() - timestamps[0]) * sampling_rate).astype(int)
-    # stimulus_onset = ph_onset_trials[~np.isnan(padded_rts)] / ph_sample_rate * fs
-    # feedback_onset = ph_offset_button_press[~np.isnan(padded_rts)] / ph_sample_rate * fs
-    print('Converted event times')
     epochs_object = make_trialwise_data(event_times_converted, microwire_names, sampling_rate, microwire_dataset,
                                         tmin=tmin,
                                         tmax=tmax,
@@ -180,11 +191,11 @@ def lfp_prep(subject, session, task, standardized_data=False, event_lock='Onset'
                                                                    norm=standardized_data)
     if not for_dpca:
         zscored_data = trial_wise_processing(epochs_object, norm=standardized_data)
-        print(zscored_data.shape)
     else:
         zscored_data = organized_data
     return organized_data_mean, zscored_data, feedback_dict, trial_time, microwire_names, feature_values
 
+def organize_data(epochs_object, microwire_names, feature_values):
 
 def main():
     # plan
