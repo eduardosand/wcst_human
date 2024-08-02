@@ -120,8 +120,8 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     :returns: None
     """
     binsize = 0.5
-    min_multiple = np.min(trial_time) // 0.5
-    time_ticks = np.arange(min_multiple*binsize, np.max(trial_time), step=0.5)
+    min_multiple = np.min(trial_time) // binsize
+    time_ticks = np.arange(min_multiple*binsize, np.max(trial_time)+binsize, step=binsize)
     time_tick_labels = time_ticks
     time_tick_labels = [f'{i:.1f}' for i in time_tick_labels]
     time_diff = np.diff(trial_time)
@@ -149,7 +149,7 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     count = 0
     ncols = 2
     nrows = 5
-    fig, ax = plt.subplots(nrows, ncols, figsize=(7, 5))
+    fig, ax = plt.subplots(nrows, ncols, figsize=(7, 5), sharex=True)
 
     for ind in range(n_electrodes):
         # make a new plot every 10 signals
