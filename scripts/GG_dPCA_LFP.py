@@ -10,7 +10,7 @@ import pandas as pd
 import mne
 
 
-def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', baseline=(-0.5, 0)):
+def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', baseline=(-0.5, 0), foi='broadband'):
     """
     Prepare biopotential data for further analyses. Expects preprocessed bandpassed signal at sampling rate of 1000.
     From here, we'd like to find the onsets of the trials and smooth over them as in Hoy et. al.
@@ -20,6 +20,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     :param event_lock: (optional) Can lock to onsets or offsets
     :param feature: (optional) automatically, correct. In theory could use anything from behavior data
     :param baseline: (optional) helpful for toying with baselines
+    :param foi: (optional) frequency of interest, current options (HFA)
     :return: epochs_object (Epochs) MNE epochs object
     :return: trial_time (array) Associated timepoints with data in epochs object
     :return: microwire_names (array) Names for each electrode in epochs object
@@ -125,7 +126,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
 
     # following rereferencing we'll band pass filter and notch filtering to remove HF noise and power line noise for both
     # macrocontacts and microwires
-    h_freq = 250
+    h_freq = 300
     l_freq = 1
     neural_ind = [i for i, element in enumerate(electrode_names) if not any(element.startswith(skip) for skip in skippables)]
     filtered_neural_data = mne.filter.filter_data(dataset[neural_ind], fs[0], l_freq, h_freq)
@@ -195,16 +196,18 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     print(epochs_object)
     epochs_dataset = epochs_object.get_data(copy=True)
     n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
+    if foi == 'HFA':
+        tfr_power = multitaper(subject, session, task, epochs_object)
+        HFA_power_normalized = log_normalize(tfr_power, trial_time, baseline=baseline)
+        epochs_object = mne.EpochsArray(HFA_power_normalized, mne_info)
     return epochs_object, trial_time, microwire_names, feature_values
 
 
-def organize_data(subject, session, task, epochs_object, feature_values, standardized_data=False, freq='HFA', method='PCA'):
+def organize_data(epochs_object, feature_values, standardized_data=False,
+                  method='PCA'):
     """
     Idea for this function is take the output from lfp_prep and set up data for different analyses, namely, PCA, dPCA,
     HFA etc
-    :param subject: (string) subject ID
-    :param session: (string) session ID
-    :param task: (string) task ID
     :param epochs_object: (Epoch): MNE Epoch object, data in here should be of
     shape (n_trials X n_electrodes X n_timepoints)
     :param microwire_names: (list): list of microwire names, should match in size to n_electrodes
@@ -213,23 +216,12 @@ def organize_data(subject, session, task, epochs_object, feature_values, standar
     :param method: (optional) - whether to organize the data for raw PCA, dPCA or other
     :return:
     """
-    if freq == 'HFA':
-        tfr_power = multitaper(subject, session, task, epochs_object)
-        HFA_power_normalized = log_normalize(tfr_power)
-        organized_data_mean, organized_data, feedback_dict = featurize(HFA_power_normalized, feature_values,
-                                                                       norm=standardized_data)
-    else:
-
-        organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, feature_values,
-                                                                       norm=standardized_data)
-
+    organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, feature_values,
+                                                                   norm=standardized_data)
     if method == 'PCA':
         zscored_data = trial_wise_processing(epochs_object, norm=standardized_data)
     elif method == 'dPCA':
         zscored_data = organized_data
-    elif method == 'HFA':
-        tfr_power = multitaper(subject, session, task, epochs_object)
-        HFA_power_normalized = log_normalize(tfr_power)
     return organized_data_mean, zscored_data, feedback_dict
 
 
@@ -255,44 +247,46 @@ def multitaper(sbj, session, task, epochs):
     path_directory = Path(f'{os.pardir}/data/{sbj}/{session}/preprocessed/')
     file_path = path_directory / f"{sbj}_{session}_{task}_multitaper_HFA_decomposition-tfr.h5"
 
-
     tfr_power = epochs.compute_tfr(method='multitaper', freqs=band_range, n_cycles=n_cycles_inst,
                                    time_bandwidth=time_bandwidth_inst, return_itc=False, average=False, n_jobs=1,
                                    use_fft=True)
 
     # tfr_power = tfr_multitaper(epochs, band_range, n_cycles_inst, time_bandwidth=time_bandwidth_inst,
-    #                                               use_fft=True, return_itc=False, decim=decim_parameter, average=False,
-	# 											  verbose=None, n_jobs=1)
+    # use_fft=True, return_itc=False, decim=decim_parameter, average=False,
+    # 											  verbose=None, n_jobs=1)
 
     tfr_power.save(file_path, overwrite=True)
     return tfr_power
 
 
-def log_normalize(tfr_power, baseline=(2,2.5)):
+def log_normalize(tfr_power, trial_time, baseline=(2, 2.5)):
     """
-        This function takes time frequency decomposition of epoched data and first log normalizes according to
+    This function takes time frequency decomposition of epoched data and first log normalizes according to
         a baseline of the first second of data. Then the data is averaged across frequency bands to obtain an
         estimate of high frequency broadband (HF BB) power. NOTE: This script was written with compute limitations
         in mind (memory). As such, it might not be as 'pythonic' as it could be.
 
-        Parameters:
-            tfr_power (Power) : Time Frequency Decomposition of epoched data, without averaging.
+    :param tfr_power: (Power) : Time Frequency Decomposition of epoched data, without averaging.
                                 Data in this class will be an array of following dimensions
                                 (n_epochs, n_electrodes, n_freq, n_timepoints)
-
-        Returns:
-            HFA_power_normalized (Array) : Array containing HF BB power, trial and electrode wise.
+    :param trial_time: (array) : timestamps for each timepoint in tfr in seconds (event_locked)
+    :param baseline: (tuple) : tells the period to use as baseline in seconds with reference to the event, used with
+    trial time
+    :return: HFA_power_normalized (array): Array containing HF BB power, trial and electrode wise.
                                            Array is of the following dimensions
                                            (n_epochs, n_electrodes, n_timepoints)
     """
+
     (n_trials, n_electrodes, n_freq, n_timepoints) = tfr_power.data.shape
     HFA_power_normalized = np.zeros((n_trials, n_electrodes, n_timepoints))
     sfreq = int(tfr_power.info['sfreq'])
-
+    baseline_start = int(np.argmax(trial_time >= baseline[0]) * sfreq)
+    baseline_end = int(np.argmax(trial_time >= baseline[1]) * sfreq)
     for i in range(n_freq):
-        mean_baseline = np.mean(np.log(tfr_power.data[:,:,i,0:sfreq]),axis=(0,2), keepdims=True)
-        std = np.std(np.log(tfr_power.data[:,:,i,0:sfreq]), axis=(0,2), keepdims=True)
-        power = (np.log(tfr_power.data[:,:,i,:])-mean_baseline) / std
+        mean_baseline = np.mean(np.log(tfr_power.data[:, :, i, baseline_start:baseline_end]), axis=(0, 2),
+                                keepdims=True)
+        std = np.std(np.log(tfr_power.data[:, :, i, baseline_start:baseline_end]), axis=(0, 2), keepdims=True)
+        power = (np.log(tfr_power.data[:, :, i, :])-mean_baseline) / std
         HFA_power_normalized += power
     HFA_power_normalized /= n_freq
     return HFA_power_normalized
