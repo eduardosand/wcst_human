@@ -20,12 +20,10 @@ standardized_data = True
 epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subject, test_session,
                                                                        task, event_lock=event_lock,
                                                                        feature=feature,
-                                                                       baseline=(2, 2.5))
+                                                                       baseline=(2, 2.5), smooth=True)
 
-organized_data_mean, organized_data, feedback_dict = organize_data(test_subject, test_session, task,
-                                                                   epochs_dataset, feature_values,
-                                                                   standardized_data=standardized_data,
-                                                                   freq='broadband')
+organized_data_mean, organized_data, feedback_dict = organize_data(epochs_dataset, feature_values,
+                                                                   standardized_data=standardized_data)
 
 # get rid of the baseline period, NOTE this assumes that we're using feedback locked time periods, and ITI, which will
 # change for other analyses

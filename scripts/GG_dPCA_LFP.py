@@ -10,7 +10,8 @@ import pandas as pd
 import mne
 
 
-def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', baseline=(-0.5, 0), foi='broadband'):
+def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', baseline=(-0.5, 0),
+             smooth=False):
     """
     Prepare biopotential data for further analyses. Expects preprocessed bandpassed signal at sampling rate of 1000.
     From here, we'd like to find the onsets of the trials and smooth over them as in Hoy et. al.
@@ -20,7 +21,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     :param event_lock: (optional) Can lock to onsets or offsets
     :param feature: (optional) automatically, correct. In theory could use anything from behavior data
     :param baseline: (optional) helpful for toying with baselines
-    :param foi: (optional) frequency of interest, current options (HFA)
+    :param smooth: (optional) whether to smooth data or not
     :return: epochs_object (Epochs) MNE epochs object
     :return: trial_time (array) Associated timepoints with data in epochs object
     :return: microwire_names (array) Names for each electrode in epochs object
@@ -99,7 +100,11 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     print('dropping reference electrodes')
     print(dataset.shape)
 
-    # electrode_names_str = re.sub("m.... ", "", electrode_names_str)
+    # Now we have the dataset, next step is to rereference
+    #
+    electrode_names_str = " ".join(electrode_names)
+
+    electrode_names_str = re.sub(f"_{stems[-1]}", "", electrode_names_str)
     electrode_names_fixed = re.sub("\d+", "", electrode_names_str)
     skippables = ['spk', 'mic', 'eye', 'photo']
     for probe in set(electrode_names_fixed.split(" ")):
@@ -123,9 +128,8 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
                 dataset[electrode_ind, :] -= dataset[next_electrode_ind, :]
             continue
 
-
-    # following rereferencing we'll band pass filter and notch filtering to remove HF noise and power line noise for both
-    # macrocontacts and microwires
+    # following rereferencing we'll band pass filter and notch filtering to remove HF noise and power line noise for
+    # both macrocontacts and microwires
     h_freq = 200
     l_freq = 1
     neural_ind = [i for i, element in enumerate(electrode_names) if not any(element.startswith(skip) for skip in skippables)]
@@ -172,43 +176,35 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
                                         tmax=tmax,
                                         baseline=baseline)
 
-    # we'll get rid of extraneous data (tmax was used for baselining purposes
-
     # generate timestamps for data
-    binsize = 0.1
-    step = 0.05
     # trial_time_full = np.arange(tmin+step, tmax, step)
-    trial_time = np.arange(tmin+step, tmax_actual, step)
-    mne_info = mne.create_info(microwire_names, sampling_rate, ch_types='seeg')
 
     # compute time frequency representations if HFA is of interest
-    if foi == 'HFA':
-        step_fs = 1 / sampling_rate
-        trial_time_full = np.arange(tmin, tmax+step_fs, step_fs)
-        tfr_power = multitaper(subject, session, task, epochs_object)
-        HFA_power_normalized = log_normalize(tfr_power, trial_time_full, baseline=baseline)
-        epochs_object = mne.EpochsArray(HFA_power_normalized, mne_info)
+    # if foi == 'HFA':
+    #     step_fs = 1 / sampling_rate
+    #     trial_time_full = np.arange(tmin, tmax+step_fs, step_fs)
+    #     tfr_power = multitaper(subject, session, task, epochs_object, foi='HFA')
+    #     HFA_power_normalized = log_normalize(tfr_power, trial_time_full, baseline=baseline)
+    #     epochs_object = mne.EpochsArray(HFA_power_normalized, mne_info)
 
-
-    # this is a way to slice the dataset up properly, note for now we'll only worry about trimming the end, but in the
-    # future if you'd like to trim the beginning, this will need to change
-    # plus one because we'd like to capture from 0-some time inclusively
-    trial_len_samples = (tmax_actual-tmin) * sampling_rate + 1
-
-    epochs_dataset = epochs_object.get_data()
     print(epochs_object.drop_log)
-    n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
-    epochs_dataset = epochs_dataset[:, :, :int(trial_len_samples)]
 
-    # trial_time = np.arange(tmin+step, tmax, step)
-    n_trials = len(beh_data['correct'])
-    smoothed_data, fs = smooth_data(epochs_dataset, sampling_rate, binsize, step)
+    # Smooth and downsample data if analyzing broadband, otherwise create the object to allow further processing
+    if smooth:
+        binsize = 0.1
+        step = 0.05
+        epochs_dataset = epochs_object.get_data()
+        # trim the end of the epoch (this should be change if wanting to trim something else)
+        trial_len_samples = (tmax_actual-tmin) * sampling_rate + 1
+        trial_time = np.arange(tmin+step, tmax_actual, step)
+        epochs_dataset = epochs_dataset[:, :, :int(trial_len_samples)]
+        smoothed_data, fs = smooth_data(epochs_dataset, sampling_rate, binsize, step)
+        mne_info = mne.create_info(microwire_names, fs, ch_types='seeg')
+        epochs_object = mne.EpochsArray(smoothed_data, mne_info)
+    else:
+        step_fs = 1 / sampling_rate
+        trial_time = np.arange(tmin, tmax+step_fs, step_fs)
 
-    mne_info = mne.create_info(microwire_names, fs, ch_types='seeg')
-    epochs_object = mne.EpochsArray(smoothed_data, mne_info)
-    print(epochs_object)
-    epochs_dataset = epochs_object.get_data(copy=True)
-    n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
     return epochs_object, trial_time, microwire_names, feature_values
 
 
@@ -234,7 +230,7 @@ def organize_data(epochs_object, feature_values, standardized_data=False,
     return organized_data_mean, zscored_data, feedback_dict
 
 
-def multitaper(sbj, session, task, epochs):
+def multitaper(sbj, session, task, epochs, foi='HFA'):
     """
     This function computes a time frequency decomposition of electrophysiological, in such a way
     to obtain high frequency broadband power(HF BB). We take a series of band ranges from 70-160.
@@ -249,22 +245,41 @@ def multitaper(sbj, session, task, epochs):
     """
     # decim_parameter = 2 # Factor for decimation
     # other variables used previously not using now use_fft=True and verbose=None
-    band_range = np.arange(70, 160, 10)
-    n_cycles_inst = band_range/2
-    time_bandwidth_inst = 7
+    if foi == 'HFA':
+        band_range = np.arange(70, 160, 10)
+        n_cycles_inst = band_range/2
+        time_bandwidth_inst = 7
 
-    path_directory = Path(f'{os.pardir}/data/{sbj}/{session}/preprocessed/')
-    file_path = path_directory / f"{sbj}_{session}_{task}_multitaper_HFA_decomposition-tfr.h5"
+        path_directory = Path(f'{os.pardir}/data/{sbj}/{session}/preprocessed/')
 
-    tfr_power = epochs.compute_tfr(method='multitaper', freqs=band_range, n_cycles=n_cycles_inst,
-                                   time_bandwidth=time_bandwidth_inst, return_itc=False, average=False, n_jobs=1,
-                                   use_fft=True)
+
+        file_path = path_directory / f"{sbj}_{session}_{task}_multitaper_HFA_decomposition-tfr.h5"
+
+        tfr_power = epochs.compute_tfr(method='multitaper', freqs=band_range, n_cycles=n_cycles_inst,
+                                       time_bandwidth=time_bandwidth_inst, return_itc=False, average=False, n_jobs=1,
+                                       use_fft=True)
+        tfr_power.save(file_path, overwrite=True)
+    else:
+        # freqs = np.arange(5.0, 100.0, 3.0)
+        vmin, vmax = -3.0, 3.0  # Define our color limits.
+        band_range = np.arange(4., 160., 4)
+        n_cycles_inst = band_range/2
+        time_bandwidth_inst = 7
+
+        path_directory = Path(f'{os.pardir}/data/{sbj}/{session}/preprocessed/')
+
+
+        file_path = path_directory / f"{sbj}_{session}_{task}_multitaper_HFA_decomposition-tfr.h5"
+
+        tfr_power = epochs.compute_tfr(method='multitaper', freqs=band_range, n_cycles=n_cycles_inst,
+                                       time_bandwidth=time_bandwidth_inst, return_itc=False, average=False, n_jobs=1,
+                                       use_fft=True)
+        tfr_power.save(file_path, overwrite=True)
 
     # tfr_power = tfr_multitaper(epochs, band_range, n_cycles_inst, time_bandwidth=time_bandwidth_inst,
     # use_fft=True, return_itc=False, decim=decim_parameter, average=False,
     # 											  verbose=None, n_jobs=1)
 
-    tfr_power.save(file_path, overwrite=True)
     return tfr_power
 
 
@@ -288,17 +303,14 @@ def log_normalize(tfr_power, trial_time, baseline=(2, 2.5)):
 
     (n_trials, n_electrodes, n_freq, n_timepoints) = tfr_power.data.shape
     HFA_power_normalized = np.zeros((n_trials, n_electrodes, n_timepoints))
-    sfreq = int(tfr_power.info['sfreq'])
-    baseline_start = int(np.argmax(trial_time >= baseline[0]) * sfreq)
-    baseline_end = int(np.argmax(trial_time >= baseline[1]) * sfreq)
+    baseline_start = int(np.argmax(trial_time >= baseline[0]))
+    baseline_end = int(np.argmax(trial_time >= baseline[1]))
     for i in range(n_freq):
         mean_baseline = np.mean(np.log(tfr_power.data[:, :, i, baseline_start:baseline_end]), axis=(0, 2),
                                 keepdims=True)
         std = np.std(np.log(tfr_power.data[:, :, i, baseline_start:baseline_end]), axis=(0, 2), keepdims=True)
         power = (np.log(tfr_power.data[:, :, i, :])-mean_baseline) / std
         HFA_power_normalized += power
-        print(mean_baseline)
-        print(std)
     HFA_power_normalized /= n_freq
     return HFA_power_normalized
 
