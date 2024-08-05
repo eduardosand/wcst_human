@@ -126,7 +126,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
 
     # following rereferencing we'll band pass filter and notch filtering to remove HF noise and power line noise for both
     # macrocontacts and microwires
-    h_freq = 300
+    h_freq = 200
     l_freq = 1
     neural_ind = [i for i, element in enumerate(electrode_names) if not any(element.startswith(skip) for skip in skippables)]
     filtered_neural_data = mne.filter.filter_data(dataset[neural_ind], fs[0], l_freq, h_freq)
@@ -174,19 +174,32 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
 
     # we'll get rid of extraneous data (tmax was used for baselining purposes
 
-    epochs_dataset = epochs_object.get_data()
+    # generate timestamps for data
+    binsize = 0.1
+    step = 0.05
+    # trial_time_full = np.arange(tmin+step, tmax, step)
+    trial_time = np.arange(tmin+step, tmax_actual, step)
+    mne_info = mne.create_info(microwire_names, sampling_rate, ch_types='seeg')
+
+    # compute time frequency representations if HFA is of interest
+    if foi == 'HFA':
+        step_fs = 1 / sampling_rate
+        trial_time_full = np.arange(tmin, tmax+step_fs, step_fs)
+        tfr_power = multitaper(subject, session, task, epochs_object)
+        HFA_power_normalized = log_normalize(tfr_power, trial_time_full, baseline=baseline)
+        epochs_object = mne.EpochsArray(HFA_power_normalized, mne_info)
+
+
     # this is a way to slice the dataset up properly, note for now we'll only worry about trimming the end, but in the
     # future if you'd like to trim the beginning, this will need to change
     # plus one because we'd like to capture from 0-some time inclusively
     trial_len_samples = (tmax_actual-tmin) * sampling_rate + 1
 
+    epochs_dataset = epochs_object.get_data()
     print(epochs_object.drop_log)
     n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
     epochs_dataset = epochs_dataset[:, :, :int(trial_len_samples)]
-    binsize = 0.1
-    step = 0.05
 
-    trial_time = np.arange(tmin+step, tmax_actual, step)
     # trial_time = np.arange(tmin+step, tmax, step)
     n_trials = len(beh_data['correct'])
     smoothed_data, fs = smooth_data(epochs_dataset, sampling_rate, binsize, step)
@@ -196,10 +209,6 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     print(epochs_object)
     epochs_dataset = epochs_object.get_data(copy=True)
     n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
-    if foi == 'HFA':
-        tfr_power = multitaper(subject, session, task, epochs_object)
-        HFA_power_normalized = log_normalize(tfr_power, trial_time, baseline=baseline)
-        epochs_object = mne.EpochsArray(HFA_power_normalized, mne_info)
     return epochs_object, trial_time, microwire_names, feature_values
 
 
@@ -240,7 +249,7 @@ def multitaper(sbj, session, task, epochs):
     """
     # decim_parameter = 2 # Factor for decimation
     # other variables used previously not using now use_fft=True and verbose=None
-    band_range = np.arange(70,160,10)
+    band_range = np.arange(70, 160, 10)
     n_cycles_inst = band_range/2
     time_bandwidth_inst = 7
 
@@ -288,6 +297,8 @@ def log_normalize(tfr_power, trial_time, baseline=(2, 2.5)):
         std = np.std(np.log(tfr_power.data[:, :, i, baseline_start:baseline_end]), axis=(0, 2), keepdims=True)
         power = (np.log(tfr_power.data[:, :, i, :])-mean_baseline) / std
         HFA_power_normalized += power
+        print(mean_baseline)
+        print(std)
     HFA_power_normalized /= n_freq
     return HFA_power_normalized
 
