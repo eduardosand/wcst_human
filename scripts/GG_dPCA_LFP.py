@@ -209,7 +209,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
 
 
 def organize_data(epochs_object, feature_values, standardized_data=False,
-                  method='PCA'):
+                  method='else'):
     """
     Idea for this function is take the output from lfp_prep and set up data for different analyses, namely, PCA, dPCA,
     HFA etc
@@ -219,13 +219,17 @@ def organize_data(epochs_object, feature_values, standardized_data=False,
     :param feature_values:
     :param standardized_data: (optional) Whether to normalized the data or not
     :param method: (optional) - whether to organize the data for raw PCA, dPCA or other
-    :return:
+    :return: organized_data_mean: (ndarray) - shape (n_electrodes, n_cond, n_timepoints)
+    :return: organized_data: (ndarray) - might be different shape depending on method
+    :return: feedback_dict: (dict)
     """
     organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, feature_values,
                                                                    norm=standardized_data)
     if method == 'PCA':
         zscored_data = trial_wise_processing(epochs_object, norm=standardized_data)
     elif method == 'dPCA':
+        zscored_data = organized_data
+    else:
         zscored_data = organized_data
     return organized_data_mean, zscored_data, feedback_dict
 
@@ -280,6 +284,42 @@ def multitaper(sbj, session, task, epochs, foi='HFA'):
     # use_fft=True, return_itc=False, decim=decim_parameter, average=False,
     # 											  verbose=None, n_jobs=1)
 
+    return tfr_power
+
+
+def morlet(sbj, session, task, epochs):
+    """
+    Perform a time frequency decomposition using Morlet wavelets. Use fewer cycles on higher frequencies
+    This serves to get a quick glance at the bands that may be involved in task.
+    :param sbj: (string) : Subject Identifier
+    :param session: (string): Session Identifier
+    :param task: (string): Task Identifier
+    :param epochs: (Epoch) : MNE Epoch object
+    :return: tfr_power (Power) : Time Frequency Decomposition of epoched data, without averaging.
+                                Data in this class will be an array of following dimensions
+                                (n_epochs, n_electrodes, n_freq, n_timepoints)
+    """
+    # freqs = np.array([0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 19, 21, 24, 27, 30, 35,
+    #                   40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180])
+    # bwidth = np.array([0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 5, 5,
+    #                    5, 5, 5, 5, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 20])
+    freqs = np.array([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 19, 21, 24, 27, 30, 35,
+                      40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200, 220, 240, 260, 280])
+    bwidth = np.array([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 5, 5,
+                       5, 5, 5, 5, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 20, 20, 20, 20, 20, 20])
+
+    freqs = np.array(freqs)
+    bwidth = np.array(bwidth)
+
+    time_bandwidth = 2
+    n_cycles = freqs * time_bandwidth / bwidth
+    tfr_power = epochs.compute_tfr(
+        method="morlet", freqs=freqs, n_cycles=n_cycles, return_itc=False, average=True
+    )
+    path_directory = Path(f'{os.pardir}/data/{sbj}/{session}/preprocessed/')
+
+    file_path = path_directory / f"{sbj}_{session}_{task}_morlet_decomposition-tfr.h5"
+    tfr_power.save(file_path, overwrite=True)
     return tfr_power
 
 
