@@ -81,6 +81,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     with open(file_path) as json_data:
         sbj_metadata = json.load(json_data)
     dropped_electrodes = sbj_metadata[subject][session]['dropped_electrodes']
+    oob_whitematter_electrodes = sbj_metadata[subject][session]['dropped_electrodes_localization']
     # prior to dropping
     print(dataset.shape)
 
@@ -98,7 +99,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     electrodes_ind = [ind for ind in range(electrode_names.size) if electrode_names[ind] not in dropped_electrodes]
     electrode_names = electrode_names[electrodes_ind]
     dataset = dataset[electrodes_ind, :]
-    print('dropping reference electrodes')
+    print('dropping reference microwire electrode and noisy bundles')
     print(dataset.shape)
 
     # Now we have the dataset, next step is to rereference
@@ -128,6 +129,13 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
                 next_electrode_ind = np.where(electrode_names == f"{probe}{contact_num + 2}")[0][0]
                 dataset[electrode_ind, :] -= dataset[next_electrode_ind, :]
             continue
+
+    # get index for which electrodes should be dropped, but drop these after referencing
+    electrodes_ind = [ind for ind in range(electrode_names.size) if electrode_names[ind] not in oob_whitematter_electrodes]
+    electrode_names = electrode_names[electrodes_ind]
+    dataset = dataset[electrodes_ind, :]
+    print('dropping white matter and out of brain electrodes')
+    print(dataset.shape)
 
     # following rereferencing we'll band pass filter and notch filtering to remove HF noise and power line noise for
     # both macrocontacts and microwires
@@ -164,12 +172,13 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
                            electrode_name.startswith('m')
                            and not electrode_name.startswith('mic')]
     else:
-        electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if
-                         np.any([electrode_name[:3].startswith(skippables[i]) for i in range(len(skippables))])]
-        electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if
-                           np.any([electrode_name[:3].startswith(skippables[i]) for i in range(len(skippables))])]
+        electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if not
+                         np.any([skippables[i].startswith(electrode_name[:3]) for i in range(len(skippables))])]
+        electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if not
+                           np.any([skippables[i].startswith(electrode_name[:3]) for i in range(len(skippables))])]
     print(electrode_names)
     lfp_dataset = dataset[electrode_ind, :]
+    print(lfp_dataset.shape)
 
     # our .csv file containing timestamps does have it in terms of samples but expecting sampling rate of photodiode
     # which has now been perturbed
