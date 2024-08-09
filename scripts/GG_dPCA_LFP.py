@@ -165,9 +165,9 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
                            and not electrode_name.startswith('mic')]
     else:
         electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if
-                         np.any([electrode_names[:3].startswith(skippables[i]) for i in range(len(skippables))])]
+                         np.any([electrode_name[:3].startswith(skippables[i]) for i in range(len(skippables))])]
         electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if
-                           np.any([electrode_names[0].startswith(skippables[i]) for i in range(len(skippables))])]
+                           np.any([electrode_name[:3].startswith(skippables[i]) for i in range(len(skippables))])]
     print(electrode_names)
     lfp_dataset = dataset[electrode_ind, :]
 
