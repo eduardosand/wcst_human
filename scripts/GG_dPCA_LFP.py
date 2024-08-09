@@ -11,7 +11,7 @@ import mne
 
 
 def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', baseline=(-0.5, 0),
-             smooth=False):
+             smooth=False, electrode_selection='all'):
     """
     Prepare biopotential data for further analyses. Expects preprocessed bandpassed signal at sampling rate of 1000.
     From here, we'd like to find the onsets of the trials and smooth over them as in Hoy et. al.
@@ -22,9 +22,10 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     :param feature: (optional) automatically, correct. In theory could use anything from behavior data
     :param baseline: (optional) helpful for toying with baselines
     :param smooth: (optional) whether to smooth data or not
+    :param electrode_selection: (optional) which electrodes to use
     :return: epochs_object (Epochs) MNE epochs object
     :return: trial_time (array) Associated timepoints with data in epochs object
-    :return: microwire_names (array) Names for each electrode in epochs object
+    :return: electrode_names (array) Names for each electrode in epochs object
     :return: feature_values (array) Associated condition for each
     """
 
@@ -155,14 +156,20 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     else:
         color_dict = dict(zip(sort_order, ['purple', 'orange']))
 
-    # This part of the code should do the smoothing
-    microwire_ind = [i for i, electrode_name in enumerate(electrode_names) if electrode_name.startswith('m')
-                     and not electrode_name.startswith('mic')]
-    microwire_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if
-                       electrode_name.startswith('m')
-                       and not electrode_name.startswith('mic')]
-
-    microwire_dataset = dataset[microwire_ind, :]
+    # select electrodes
+    if electrode_selection == 'microwire':
+        electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if electrode_name.startswith('m')
+                         and not electrode_name.startswith('mic')]
+        electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if
+                           electrode_name.startswith('m')
+                           and not electrode_name.startswith('mic')]
+    else:
+        electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if
+                         np.any([electrode_names[:3].startswith(skippables[i]) for i in range(len(skippables))])]
+        electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if
+                           np.any([electrode_names[0].startswith(skippables[i]) for i in range(len(skippables))])]
+    print(electrode_names)
+    lfp_dataset = dataset[electrode_ind, :]
 
     # our .csv file containing timestamps does have it in terms of samples but expecting sampling rate of photodiode
     # which has now been perturbed
@@ -171,7 +178,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     assert len(set(fs)) == 1
     sampling_rate = fs[0]
     event_times_converted = ((event_times.copy() - timestamps[0]) * sampling_rate).astype(int)
-    epochs_object = make_trialwise_data(event_times_converted, microwire_names, sampling_rate, microwire_dataset,
+    epochs_object = make_trialwise_data(event_times_converted, electrode_names, sampling_rate, lfp_dataset,
                                         tmin=tmin,
                                         tmax=tmax,
                                         baseline=baseline)
@@ -199,13 +206,13 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         trial_time = np.arange(tmin+step, tmax_actual, step)
         epochs_dataset = epochs_dataset[:, :, :int(trial_len_samples)]
         smoothed_data, fs = smooth_data(epochs_dataset, sampling_rate, binsize, step)
-        mne_info = mne.create_info(microwire_names, fs, ch_types='seeg')
+        mne_info = mne.create_info(electrode_names, fs, ch_types='seeg')
         epochs_object = mne.EpochsArray(smoothed_data, mne_info)
     else:
         step_fs = 1 / sampling_rate
         trial_time = np.arange(tmin, tmax+step_fs, step_fs)
 
-    return epochs_object, trial_time, microwire_names, feature_values
+    return epochs_object, trial_time, electrode_names, feature_values
 
 
 def organize_data(epochs_object, feature_values, standardized_data=False,
