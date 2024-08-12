@@ -19,16 +19,17 @@ feature = 'correct'
 standardized_data = True
 baseline = (2, 2.5)
 # standardized_data = False
-epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subject, test_session,
+epochs_dataset, trial_time, electrode_names, feature_values = lfp_prep(test_subject, test_session,
                                                                        task, event_lock=event_lock,
                                                                        feature=feature,
-                                                                       baseline=baseline)
+                                                                       baseline=baseline,
+                                                                       electrode_selection='microwire')
 organized_data_mean, organized_data, feedback_dict = organize_data(epochs_dataset, feature_values,
                                                                    standardized_data=standardized_data)
 
 n_max_trials, n_electrodes, n_cond, n_timepoints = organized_data.shape
 sampling_rate = epochs_dataset.info['sfreq']
-mne_info = mne.create_info(microwire_names, sampling_rate, ch_types='seeg')
+mne_info = mne.create_info(electrode_names, sampling_rate, ch_types='seeg')
 tfr_power_dict = {}
 for i in feedback_dict.keys():
     curr_option = feedback_dict[i]
@@ -42,10 +43,10 @@ for i in feedback_dict.keys():
 
 tfr_power_dict['contrast'] = tfr_power_dict['correct'].__sub__(tfr_power_dict['incorrect'])
 import matplotlib.pyplot as plt
-vmin = -3
-vmax = 3
+vmin = -4
+vmax = 4
 for j in range(n_electrodes):
-    fig, axs = plt.subplots(1, 4, figsize=(15, 7), gridspec_kw={'width_ratios': [8, 8, 8, 1]}, sharex=True)
+    fig, axs = plt.subplots(1, 4, figsize=(15, 7), gridspec_kw={'width_ratios': [8, 8, 8, 1]})
     count = 0
     cmap = 'coolwarm'
     for i in tfr_power_dict.keys():
@@ -67,7 +68,7 @@ for j in range(n_electrodes):
         ax.set_yticks([4, 8, 12, 30, 50, 70, 100, 130, 150, 180])
         count += 1
     # axs[count].axis('off')
-    plt.suptitle(f"{microwire_names[j]} - {test_subject} - {test_session}")
+    plt.suptitle(f"{electrode_names[j]} - {test_subject} - {test_session}")
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
     sm.set_array([])
     plt.colorbar(sm, cax=axs[count])
@@ -75,4 +76,4 @@ for j in range(n_electrodes):
     plt.show()
 
 
-mne_info = mne.create_info(microwire_names, sampling_rate, ch_types='seeg')
+mne_info = mne.create_info(electrode_names, sampling_rate, ch_types='seeg')
