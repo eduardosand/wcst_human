@@ -80,8 +80,11 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     file_path = Path(f'{os.pardir}/scripts/subject_deets.json')
     with open(file_path) as json_data:
         sbj_metadata = json.load(json_data)
-    dropped_electrodes = sbj_metadata[subject][session]['dropped_electrodes']
+    dropped_electrodes_noisy = sbj_metadata[subject][session]['dropped_electrodes_noisy']
+    dropped_electrodes_reference = sbj_metadata[subject][session]['dropped_electrodes_reference']
+    dropped_electrodes_heartbeat = sbj_metadata[subject][session]['dropped_electrodes_heartbeat']
     oob_whitematter_electrodes = sbj_metadata[subject][session]['dropped_electrodes_localization']
+    dropped_electrodes = dropped_electrodes_noisy + dropped_electrodes_reference + dropped_electrodes_heartbeat
     # prior to dropping
     print(dataset.shape)
 
@@ -115,7 +118,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         # Assume all these electrodes are numbered from 1 - end, with 1 being the tip(deepest part of the brain).
         num_contacts = electrode_names_fixed.split(" ").count(probe)
         if probe.startswith('m'):
-            # common average reference for microwires
+            # # common average reference for microwires
             micro_contacts = [ind for ind, val in enumerate(electrode_names) if val.startswith(probe)]
             # print(micro_contacts)
             common_avg_ref = np.average(dataset[micro_contacts, :], axis=0)
@@ -131,7 +134,8 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
             continue
 
     # get index for which electrodes should be dropped, but drop these after referencing
-    electrodes_ind = [ind for ind in range(electrode_names.size) if electrode_names[ind] not in oob_whitematter_electrodes]
+    electrodes_ind = [ind for ind in range(electrode_names.size) if electrode_names[ind] not in
+                      oob_whitematter_electrodes]
     electrode_names = electrode_names[electrodes_ind]
     dataset = dataset[electrodes_ind, :]
     print('dropping white matter and out of brain electrodes')
@@ -141,7 +145,8 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     # both macrocontacts and microwires
     h_freq = 200
     l_freq = 1
-    neural_ind = [i for i, element in enumerate(electrode_names) if not any(element.startswith(skip) for skip in skippables)]
+    neural_ind = [i for i, element in enumerate(electrode_names) if not any(element.startswith(skip) for skip in
+                                                                            skippables)]
     filtered_neural_data = mne.filter.filter_data(dataset[neural_ind], fs[0], l_freq, h_freq)
 
     # notch filter
@@ -158,11 +163,6 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         feature_values = beh_data['rule dimension']
     else:
         feature_values = beh_data['chosen']
-    sort_order = sorted(set(feature_values))
-    if len(sort_order) == 3:
-        color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
-    else:
-        color_dict = dict(zip(sort_order, ['purple', 'orange']))
 
     # select electrodes
     if electrode_selection == 'microwire':
@@ -187,10 +187,22 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     assert len(set(fs)) == 1
     sampling_rate = fs[0]
     event_times_converted = ((event_times.copy() - timestamps[0]) * sampling_rate).astype(int)
+
+    data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
+    # check for annotations and apply them
+    file_path = data_directory / f'{subject}_{session}_{task}_post_timestamping_events.csv'
+    if os.path.isfile(file_path):
+        annotations_df = pd.read_csv(file_path)
+        onsets = list(annotations_df['time'])
+        durations = list(annotations_df['duration'])
+        description = list(annotations_df['label'])
+        annotations = mne.Annotations(onsets, durations, description)
+    else:
+        annotations = None
     epochs_object = make_trialwise_data(event_times_converted, electrode_names, sampling_rate, lfp_dataset,
                                         tmin=tmin,
                                         tmax=tmax,
-                                        baseline=baseline)
+                                        baseline=baseline, annotations=annotations)
 
     # generate timestamps for data
     # trial_time_full = np.arange(tmin+step, tmax, step)
@@ -221,6 +233,10 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         step_fs = 1 / sampling_rate
         trial_time = np.arange(tmin, tmax+step_fs, step_fs)
 
+    epochs_object.drop_bad()
+    # drop the associated label with a trial if trial was dropped
+    retained_ind = [ind for ind in range(len(feature_values)) if len(epochs_object.drop_log[ind]) == 0]
+    feature_values = feature_values[retained_ind]
     return epochs_object, trial_time, electrode_names, feature_values
 
 
