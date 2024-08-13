@@ -1,7 +1,6 @@
 # This code exists to perform a PCA analysis of the broadband LFP data
 from GG_dPCA_LFP import lfp_prep, organize_data, multitaper, log_normalize, morlet
 from G_dPCA import plot_signal_avg
-from sklearn.decomposition import PCA
 import numpy as np
 from scipy import stats
 from scipy.stats import permutation_test
@@ -26,7 +25,6 @@ epochs_dataset, trial_time, electrode_names, feature_values = lfp_prep(test_subj
                                                                        electrode_selection='microwire')
 organized_data_mean, organized_data, feedback_dict = organize_data(epochs_dataset, feature_values,
                                                                    standardized_data=standardized_data)
-
 n_max_trials, n_electrodes, n_cond, n_timepoints = organized_data.shape
 sampling_rate = epochs_dataset.info['sfreq']
 mne_info = mne.create_info(electrode_names, sampling_rate, ch_types='seeg')
@@ -36,15 +34,13 @@ for i in feedback_dict.keys():
     trial_num = len(feature_values[feature_values == curr_option])
 
     data_for_morlet = organized_data[0:trial_num, :, i, :]
-
-
     epochs_object_cond = mne.EpochsArray(data_for_morlet, mne_info, tmin=epochs_dataset.tmin)
     tfr_power_dict[curr_option] = morlet(test_subject, test_session, task, epochs_object_cond)
 
 tfr_power_dict['contrast'] = tfr_power_dict['correct'].__sub__(tfr_power_dict['incorrect'])
 import matplotlib.pyplot as plt
-vmin = -4
-vmax = 4
+vmin = -5
+vmax = 5
 for j in range(n_electrodes):
     fig, axs = plt.subplots(1, 4, figsize=(15, 7), gridspec_kw={'width_ratios': [8, 8, 8, 1]})
     count = 0
