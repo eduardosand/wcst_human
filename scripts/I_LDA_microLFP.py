@@ -18,7 +18,7 @@ feature = 'correct'
 # feature = 'rule dimension'
 standardized_data = True
 # standardized_data = False
-electrode_selection = 'all'
+electrode_selection = 'macrocontact'
 epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subject, test_session,
                                                                        task, event_lock=event_lock,
                                                                        feature=feature,
@@ -32,9 +32,9 @@ organized_data_mean, organized_data, feedback_dict = organize_data(epochs_datase
 # change for other analyses
 n_neurons, n_cond, n_timepoints = organized_data_mean.shape
 feature_dict = feedback_dict
-print('plotting now')
-plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
-                extra_string=f'Normalization = {standardized_data} {event_lock}-lock', signal_names=microwire_names)
+# print('plotting now')
+# plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
+#                 extra_string=f'Normalization = {standardized_data} {event_lock}-lock', signal_names=microwire_names)
 
 mean_accuracies = []
 sem_accuracies = []
@@ -93,8 +93,9 @@ ax_curr = ax
 ax_curr.set_xlabel('Time (s)')
 ax_curr.set_xticks(time_ticks, time_tick_labels)
 extra_string_start = 'normalized' + ', bp and notch filtered'
-extra_string = f'{extra_string_start} {event_lock}-lock \n corrected for multiple comparisons \n no common average reference'
-plt.suptitle(f'Mean Accuracy of LDA on {electrode_selection} broadband LFP \n {test_subject} - session {test_session} \n {extra_string}')
+extra_string = f'{extra_string_start} {event_lock}-lock \n corrected for multiple comparisons \n dont drop trials'
+plt.suptitle(f'Mean Accuracy of LDA on {electrode_selection} broadband LFP \n {test_subject} - session {test_session} '
+             f'\n {extra_string}')
 plt.subplots_adjust(hspace=0.7, wspace=0.25, top=0.82, right=right_margin, left=0.1)
 
 # we're plotting the same thing in each subplot, so only grab labels for one plot
@@ -104,7 +105,13 @@ plt.subplots_adjust(hspace=0.7, wspace=0.25, top=0.82, right=right_margin, left=
 ax_curr.plot(trial_time, mean_accuracies)
 if pvalues_corr is not None:
     for t in range(len(p_values)):
-        if pvalues_corr[t] < 0.05:
+        if pvalues_corr[t] < 0.05 and t == len(p_values)-1:
+            ax_curr.axvspan(trial_time[t] - time_diff[t - 1] / 2, trial_time[t], color='red',
+                    alpha=0.3)
+        elif pvalues_corr[t] < 0.05 and t == 0:
+            ax_curr.axvspan(trial_time[t], trial_time[t] + time_diff[t] / 2, color='red',
+                    alpha=0.3)
+        elif pvalues_corr[t] < 0.05:
             ax_curr.axvspan(trial_time[t] - time_diff[t - 1] / 2, trial_time[t] + time_diff[t] / 2, color='red',
                     alpha=0.3)
 ax_curr.axvspan(0.3, 0.6, color='grey', alpha=0.3)
