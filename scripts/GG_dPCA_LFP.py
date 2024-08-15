@@ -84,7 +84,10 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     dropped_electrodes_reference = sbj_metadata[subject][session]['dropped_electrodes_reference']
     dropped_electrodes_heartbeat = sbj_metadata[subject][session]['dropped_electrodes_heartbeat']
     oob_whitematter_electrodes = sbj_metadata[subject][session]['dropped_electrodes_localization']
-    dropped_electrodes = dropped_electrodes_noisy + dropped_electrodes_reference + dropped_electrodes_heartbeat
+    macro_noisy = sbj_metadata[subject][session]["dropped_macros_noisy"]
+    no_reference_electrodes = sbj_metadata[subject][session]["dropped_macros_no_reference"]
+    dropped_electrodes = dropped_electrodes_reference + dropped_electrodes_noisy + dropped_electrodes_heartbeat
+    dropped_macrocontacts = oob_whitematter_electrodes + macro_noisy + no_reference_electrodes
     # prior to dropping
     print(dataset.shape)
 
@@ -119,10 +122,9 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         num_contacts = electrode_names_fixed.split(" ").count(probe)
         if probe.startswith('m'):
             # # common average reference for microwires
-            micro_contacts = [ind for ind, val in enumerate(electrode_names) if val.startswith(probe)]
-            # print(micro_contacts)
-            common_avg_ref = np.average(dataset[micro_contacts, :], axis=0)
-            dataset[micro_contacts, :] -= common_avg_ref
+            # micro_contacts = [ind for ind, val in enumerate(electrode_names) if val.startswith(probe)]
+            # common_avg_ref = np.average(dataset[micro_contacts, :], axis=0)
+            # dataset[micro_contacts, :] -= common_avg_ref
             continue
         elif num_contacts > 1:
             # bipolar reference for everything else
@@ -135,7 +137,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
 
     # get index for which electrodes should be dropped, but drop these after referencing
     electrodes_ind = [ind for ind in range(electrode_names.size) if electrode_names[ind] not in
-                      oob_whitematter_electrodes]
+                      dropped_macrocontacts]
     electrode_names = electrode_names[electrodes_ind]
     dataset = dataset[electrodes_ind, :]
     print('dropping white matter and out of brain electrodes')
@@ -171,6 +173,11 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if
                            electrode_name.startswith('m')
                            and not electrode_name.startswith('mic')]
+    elif electrode_selection == 'macrocontact':
+        electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if
+                         not electrode_name.startswith('m')]
+        electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if not
+                           electrode_name.startswith('m')]
     else:
         electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if not
                          np.any([skippables[i].startswith(electrode_name[:3]) for i in range(len(skippables))])]
@@ -191,6 +198,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
     # check for annotations and apply them
     file_path = data_directory / f'{subject}_{session}_{task}_post_timestamping_events.csv'
+    # annotations = None
     if os.path.isfile(file_path):
         annotations_df = pd.read_csv(file_path)
         onsets = list(annotations_df['time'])
@@ -216,8 +224,13 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     #     epochs_object = mne.EpochsArray(HFA_power_normalized, mne_info)
 
     print(epochs_object.drop_log)
+    epochs_object.drop_bad()
+    # drop the associated label with a trial if trial was dropped
+    retained_ind = [ind for ind in range(len(feature_values)) if len(epochs_object.drop_log[ind]) == 0]
+    feature_values = feature_values[retained_ind]
 
     # Smooth and downsample data if analyzing broadband, otherwise create the object to allow further processing
+    # careful that smoothing removes annotation as part of the epochs_object
     if smooth:
         binsize = 0.1
         step = 0.05
@@ -232,11 +245,6 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     else:
         step_fs = 1 / sampling_rate
         trial_time = np.arange(tmin, tmax+step_fs, step_fs)
-
-    epochs_object.drop_bad()
-    # drop the associated label with a trial if trial was dropped
-    retained_ind = [ind for ind in range(len(feature_values)) if len(epochs_object.drop_log[ind]) == 0]
-    feature_values = feature_values[retained_ind]
     return epochs_object, trial_time, electrode_names, feature_values
 
 
