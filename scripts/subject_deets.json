@@ -39,9 +39,11 @@
                 "mLOF5", "mLOF6", "mLOF7", "mLOF8", "mLTH6", "mLTH8"
                 ],
                 "dropped_electrodes_heartbeat": ["mLTH7", "mLAM4","mLAM5", "mLAC1"],
-                "dropped_electrodes_localization": ["LAM3", "LHH2", "LHH3", "LTH2", "LTH3", "LTH8", "LOF8", "LAC2",
+                "dropped_electrodes_localization": ["LAM3", "LHH2", "LHH3", "LTH2", "LTH3", "LTH8", "LOF8", "LAC1","LAC2",
                 "LAC3", "LAC4", "LAC5"]
                 },
+                "dropped_macros_noisy": ["LAC7"],
+                "dropped_macros_no_reference": ["LAM2", "LHH1", "LTH1", "LTH7", "LAC6", "LAC8", "LAM8", "LHH8", "LOF7"],
         "sess-2": {
                 "photodiode_quality": "True",
                 "photodiode_uploaded": "True",
