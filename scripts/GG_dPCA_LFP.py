@@ -55,9 +55,11 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     elif event_lock == 'Feedback':
         event_times = feedback_times
         tmin = -0.5
-        tmax = 2.5
+        # tmax = 2.5
         baseline = baseline
-        tmax_actual = tmax - 1.
+        # tmax_actual = tmax - 1.
+        tmax = 1.5
+        tmax_actual = tmax
         tmin_actual = tmin
 
     # global t-start
@@ -83,11 +85,12 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     dropped_electrodes_noisy = sbj_metadata[subject][session]['dropped_electrodes_noisy']
     dropped_electrodes_reference = sbj_metadata[subject][session]['dropped_electrodes_reference']
     dropped_electrodes_heartbeat = sbj_metadata[subject][session]['dropped_electrodes_heartbeat']
-    oob_whitematter_electrodes = sbj_metadata[subject][session]['dropped_electrodes_localization']
-    macro_noisy = sbj_metadata[subject][session]["dropped_macros_noisy"]
-    no_reference_electrodes = sbj_metadata[subject][session]["dropped_macros_no_reference"]
+    oob_electrodes = sbj_metadata[subject][session]['dropped_electrodes_oob']
+    wm_electrodes = sbj_metadata[subject][session]['dropped_electrodes_wm']
+    macro_noisy = sbj_metadata[subject][session]['dropped_macros_noisy']
+    no_reference_electrodes = sbj_metadata[subject][session]['dropped_macros_no_reference']
     dropped_electrodes = dropped_electrodes_reference + dropped_electrodes_noisy + dropped_electrodes_heartbeat
-    dropped_macrocontacts = oob_whitematter_electrodes + macro_noisy + no_reference_electrodes
+    dropped_macrocontacts = oob_electrodes + no_reference_electrodes + macro_noisy + wm_electrodes
     # prior to dropping
     print(dataset.shape)
 
@@ -142,7 +145,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     dataset = dataset[electrodes_ind, :]
     print('dropping white matter and out of brain electrodes')
     print(dataset.shape)
-
+    print(electrode_names)
     # following rereferencing we'll band pass filter and notch filtering to remove HF noise and power line noise for
     # both macrocontacts and microwires
     h_freq = 200
@@ -175,9 +178,11 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
                            and not electrode_name.startswith('mic')]
     elif electrode_selection == 'macrocontact':
         electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if
-                         not electrode_name.startswith('m')]
-        electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if not
-                           electrode_name.startswith('m')]
+                         not (electrode_name.startswith('m') or
+                              np.any([skippables[i].startswith(electrode_name[:3]) for i in range(len(skippables))]))]
+        electrode_names = [electrode_name for i, electrode_name in enumerate(electrode_names) if
+                           not (electrode_name.startswith('m') or
+                                np.any([skippables[i].startswith(electrode_name[:3]) for i in range(len(skippables))]))]
     else:
         electrode_ind = [i for i, electrode_name in enumerate(electrode_names) if not
                          np.any([skippables[i].startswith(electrode_name[:3]) for i in range(len(skippables))])]
