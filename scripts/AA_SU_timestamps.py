@@ -11,7 +11,7 @@ def main():
     # subjects = ["IR86"]
     # subjects = ["IR98", "IR99"]
     subjects = ["IR100"]
-    sessions = ["sess-1" 'sess-2']
+    sessions = ["sess-1", "sess-2"]
     # sessions = ["sess-1", "sess-2", "sess-3"]
     # sessions = ["sess-4"]
     # sessions = ["sess-1"]
