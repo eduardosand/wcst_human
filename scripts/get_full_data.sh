@@ -13,6 +13,7 @@ template_path="subject/sess-session/raw"
 local_path="/home/eduardo/wcst_human/data"
 # Looping through each subject
 for subject in IR85 IR87 IR94 IR95 DA9
+#for subject in IR84 IR98 IR99 IR86 IR100
 do
   echo $subject
   # replace all occurrences of subject with current
