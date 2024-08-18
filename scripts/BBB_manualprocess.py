@@ -10,7 +10,7 @@ from behavior_analysis import process_wcst_behavior
 import re
 import pandas as pd
 
-subject = 'IR95'
+subject = 'IR98'
 session = 'sess-3'
 task = 'wcst'
 
@@ -18,22 +18,22 @@ task = 'wcst'
 timestamps_file = f"sub-{subject}-{session}-ph_timestamps.csv"
 
 data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
-ph_file_path = get_file_info(data_directory / Path('raw'), 'photo1', '.ncs')
+# ph_file_path = get_file_info(data_directory / Path('raw'), 'photo1', '.ncs')
 
-running_avg = 5
-bhv_directory = data_directory / Path("behavior")
-bhv_file_path = get_file_info(bhv_directory, f'{subject}', '.csv')
+# running_avg = 5
+# bhv_directory = data_directory / Path("behavior")
+# bhv_file_path = get_file_info(bhv_directory, f'{subject}', '.csv')
+#
+# beh_data, rule_shifts_ind, _ = process_wcst_behavior(bhv_file_path,
+#                                                          running_avg=running_avg)
+#
+# beh_data.set_index(['trial'], inplace=True)
+# beh_timestamps = pd.read_csv(bhv_directory / timestamps_file)
 
-beh_data, rule_shifts_ind, _ = process_wcst_behavior(bhv_file_path,
-                                                         running_avg=running_avg)
-
-beh_data.set_index(['trial'], inplace=True)
-beh_timestamps = pd.read_csv(bhv_directory / timestamps_file)
-
-# global t-start
-reader = read_file(ph_file_path)
-reader.parse_header()
-start_record = reader.global_t_start
+## global t-start
+# reader = read_file(ph_file_path)
+# reader.parse_header()
+# start_record = reader.global_t_start
 
 bp = 1000
 processed_data_directory = data_directory / 'preprocessed'
