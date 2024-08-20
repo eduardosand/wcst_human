@@ -11,7 +11,7 @@ import mne
 
 
 def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', baseline=(-0.5, 0),
-             smooth=False, electrode_selection='all'):
+             smooth=False, electrode_selection='all', car=True):
     """
     Prepare biopotential data for further analyses. Expects preprocessed bandpassed signal at sampling rate of 1000.
     From here, we'd like to find the onsets of the trials and smooth over them as in Hoy et. al.
@@ -23,6 +23,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     :param baseline: (optional) helpful for toying with baselines
     :param smooth: (optional) whether to smooth data or not
     :param electrode_selection: (optional) which electrodes to use
+    :param car: (optional) Whether to use common average reference on, default True
     :return: epochs_object (Epochs) MNE epochs object
     :return: trial_time (array) Associated timepoints with data in epochs object
     :return: electrode_names (array) Names for each electrode in epochs object
@@ -84,12 +85,12 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         sbj_metadata = json.load(json_data)
     dropped_electrodes_noisy = sbj_metadata[subject][session]['dropped_electrodes_noisy']
     dropped_electrodes_reference = sbj_metadata[subject][session]['dropped_electrodes_reference']
-    dropped_electrodes_heartbeat = sbj_metadata[subject][session]['dropped_electrodes_heartbeat']
+    dropped_electrodes_micro_PED = sbj_metadata[subject][session]['dropped_electrodes_microperiodic_epileptic_discharge']
     oob_electrodes = sbj_metadata[subject][session]['dropped_electrodes_oob']
     wm_electrodes = sbj_metadata[subject][session]['dropped_electrodes_wm']
     macro_noisy = sbj_metadata[subject][session]['dropped_macros_noisy']
     no_reference_electrodes = sbj_metadata[subject][session]['dropped_macros_no_reference']
-    dropped_electrodes = dropped_electrodes_reference + dropped_electrodes_noisy + dropped_electrodes_heartbeat
+    dropped_electrodes = dropped_electrodes_reference + dropped_electrodes_noisy + dropped_electrodes_micro_PED
     dropped_macrocontacts = oob_electrodes + no_reference_electrodes + macro_noisy + wm_electrodes
     # prior to dropping
     print(dataset.shape)
@@ -124,10 +125,11 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         # Assume all these electrodes are numbered from 1 - end, with 1 being the tip(deepest part of the brain).
         num_contacts = electrode_names_fixed.split(" ").count(probe)
         if probe.startswith('m'):
-            # # common average reference for microwires
-            # micro_contacts = [ind for ind, val in enumerate(electrode_names) if val.startswith(probe)]
-            # common_avg_ref = np.average(dataset[micro_contacts, :], axis=0)
-            # dataset[micro_contacts, :] -= common_avg_ref
+            if car:
+                # common average reference for microwires
+                micro_contacts = [ind for ind, val in enumerate(electrode_names) if val.startswith(probe)]
+                common_avg_ref = np.average(dataset[micro_contacts, :], axis=0)
+                dataset[micro_contacts, :] -= common_avg_ref
             continue
         elif num_contacts > 1:
             # bipolar reference for everything else
@@ -136,7 +138,6 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
                 electrode_ind = np.where(electrode_names == curr_electrode)[0][0]
                 next_electrode_ind = np.where(electrode_names == f"{probe}{contact_num + 2}")[0][0]
                 dataset[electrode_ind, :] -= dataset[next_electrode_ind, :]
-            continue
 
     # get index for which electrodes should be dropped, but drop these after referencing
     electrodes_ind = [ind for ind in range(electrode_names.size) if electrode_names[ind] not in
@@ -159,7 +160,6 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
 
     # cast this data back to dataset array
     dataset[neural_ind] = filtered_neural_data
-
 
     if feature == 'correct':
         beh_data["correct"] = np.where(beh_data["correct"] == 0, 'incorrect', 'correct')
