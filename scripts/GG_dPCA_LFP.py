@@ -242,7 +242,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         epochs_dataset = epochs_object.get_data()
         # trim the end of the epoch (this should be change if wanting to trim something else)
         trial_len_samples = (tmax_actual-tmin) * sampling_rate + 1
-        trial_time = np.arange(tmin+step, tmax_actual, step)
+        trial_time = np.round(np.arange(tmin+step, tmax_actual, step),2)
         epochs_dataset = epochs_dataset[:, :, :int(trial_len_samples)]
         smoothed_data, fs = smooth_data(epochs_dataset, sampling_rate, binsize, step)
         mne_info = mne.create_info(electrode_names, fs, ch_types='seeg')
