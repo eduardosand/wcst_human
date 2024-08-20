@@ -94,7 +94,7 @@ def trial_wise_processing(epochs_object, norm=True):
     Concatenates data trial-wise and centers/zscores it
     :param epochs_object: MNE object that contains the trialwise data
     :param norm:  determines whether to zscore the data
-    :return:
+    :return: zscored_concatenated_data: (ndarray) shape (n_epochs, n_electrodes, n_timepoints)
     """
     epochs_dataset = epochs_object.get_data(copy=True)
     n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
@@ -119,10 +119,12 @@ def plot_signal_avg(organized_data_mean, subject, session, trial_time,
     differences. Allows for visualization of significant pvalues. Defaults to None.
     :returns: None
     """
-    binsize = 0.5
+    binsize = 0.25
     min_multiple = np.min(trial_time) // binsize
     time_ticks = np.arange(min_multiple*binsize, np.max(trial_time), step=binsize)
     time_tick_labels = time_ticks
+    print(time_ticks)
+    print('wtf')
     time_tick_labels = [f'{i:.1f}' for i in time_tick_labels]
     time_diff = np.diff(trial_time)
     n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
