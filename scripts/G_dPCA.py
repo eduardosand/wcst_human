@@ -37,8 +37,10 @@ def featurize(epochs_object, feature, norm=False):
     n_epochs(trials) X n_electrodes(observations) X n_timepoints(observations in time)
     :param epochs_object: MNE epochs object. The data in this object should be n_trials X n_electrodes X n_timepoints
     :param feature: (np.array) size (n_epochs, )
-    :param norm:
-    :return:
+    :param norm: (optional) (bool) whether to z-score the data or just center
+    :return: organized_data_mean: (ndarray) shape (n_electrodes, n_cond, n_timepoints)
+    :return: organized_data: (ndarray) shape (n_epochs, n_electrodes, n_cond, n_timepoints)
+    :return: inv_feature_dict: (dict) keys are the values, values are the features they correspond to
     """
     epochs_dataset = epochs_object.get_data(copy=True)
     n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
