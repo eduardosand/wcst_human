@@ -31,26 +31,77 @@
                 "photodiode_quality": "True",
                 "behavior_uploaded": "True",
                 "single_unit_uploaded": "True",
-                "LFP_uploaded": "False",
+                "LFP_uploaded": "True",
                 "SU_timestamps_file_generated": "True",
                 "photodiode_timestamps_acquired": "True",
-                "dropped_electrodes_reference": ["mLAC3", "mLAM8", "mLHH1", "mLTH1"],
-                "dropped_electrodes_noisy": ["mLOF1", "mLOF2", "mLOF3", "mLOF4",
-                "mLOF5", "mLOF6", "mLOF7", "mLOF8", "mLTH6", "mLTH8"
+                "dropped_electrodes_reference": [
+                        "mLAC3",
+                        "mLAM8",
+                        "mLHH1",
+                        "mLTH1"
                 ],
-                "dropped_electrodes_heartbeat": ["mLTH7", "mLAM4","mLAM5", "mLAC1"],
-                "dropped_electrodes_localization": ["LAM3", "LHH2", "LHH3", "LTH2", "LTH3", "LTH8", "LOF8", "LAC1","LAC2",
-                "LAC3", "LAC4", "LAC5"]
-                },
-                "dropped_macros_noisy": ["LAC7"],
-                "dropped_macros_no_reference": ["LAM2", "LHH1", "LTH1", "LTH7", "LAC6", "LAC8", "LAM8", "LHH8", "LOF7"],
+                "dropped_electrodes_noisy": [
+                        "mLOF1",
+                        "mLOF2",
+                        "mLOF3",
+                        "mLOF4",
+                        "mLOF5",
+                        "mLOF6",
+                        "mLOF7",
+                        "mLOF8",
+                        "mLTH6",
+                        "mLTH7",
+                        "mLTH8"
+                ],
+                "dropped_electrodes_microperiodic_epileptic_discharge": [
+                        "mLTH7",
+                        "mLAM4",
+                        "mLAM5",
+                        "mLAC1"
+                ],
+                "dropped_electrodes_oob": [
+                        "LOF7",
+                        "LOF8",
+                        "LTH7",
+                        "LTH8"
+
+                ],
+                "dropped_electrodes_wm":
+                [
+                        "LAM3",
+                        "LHH2",
+                        "LHH3",
+                        "LTH2",
+                        "LTH3",
+                        "LAC2",
+                        "LAC3",
+                        "LAC4",
+                        "LAC5"
+                ],
+                "dropped_macros_noisy": [
+                        "LAC6",
+                        "LAC7",
+                        "LOF1",
+                        "LOF2",
+                        "LOF3",
+                        "LOF4"
+                ],
+                "dropped_macros_no_reference": [
+                        "LAM8",
+                        "LHH8",
+                        "LTH8",
+                        "LOF8",
+                        "LAC8"
+                ]
+        },
         "sess-2": {
                 "photodiode_quality": "True",
                 "photodiode_uploaded": "True",
                 "behavior_uploaded": "True",
-                "single_unit_uploaded": "True",
-                "LFP_uploaded": "False",
-                "photodiode_timestamps_acquired": "True",
+                "single_unit_uploaded": "False",
+                "LFP_processed": "True",
+                "LFP_uploaded": "True",
+                "photodiode_timestamps_acquired": "False",
                 "SU_timestamps_file_generated": "True"
         },
         "sess-1": {
@@ -58,8 +109,9 @@
                 "photodiode_uploaded": "True",
                 "behavior_uploaded": "True",
                 "single_unit_uploaded": "False",
-                "LFP_uploaded": "False",
-                "photodiode_timestamps_acquired": "True",
+                "LFP_processed": "True",
+                "LFP_uploaded": "True",
+                "photodiode_timestamps_acquired": "False",
                 "SU_timestamps_file_generated": "True"
         }
     },
@@ -91,17 +143,36 @@
         "IR85": {
                 "subjectid": "SBJ05",
                 "sess-1": {
+                "photodiode_quality": "True",
+                "photodiode_uploaded": "True",
+                "behavior_uploaded": "False",
+                "single_unit_uploaded": "False",
+                "LFP_processed": "True",
+                "LFP_uploaded": "True",
+                "photodiode_timestamps_acquired": "False",
                 "SU_timestamps_file_generated": "True"
-
                 },
                 "sess-2": {
+                "photodiode_quality": "True",
+                "photodiode_uploaded": "True",
+                "behavior_uploaded": "False",
+                "single_unit_uploaded": "False",
+                "LFP_processed": "True",
+                "LFP_uploaded": "True",
+                "photodiode_timestamps_acquired": "False",
                 "SU_timestamps_file_generated": "True"
-
                 }
         },
         "IR86": {
                 "subjectid": "SBJ06",
                 "sess-1": {
+                "photodiode_quality": "True",
+                "photodiode_uploaded": "True",
+                "behavior_uploaded": "False",
+                "single_unit_uploaded": "False",
+                "LFP_processed": "True",
+                "LFP_uploaded": "True",
+                "photodiode_timestamps_acquired": "False",
                 "SU_timestamps_file_generated": "True"
 
                 }
@@ -120,14 +191,35 @@
         "IR98": {
                 "subjectid": "SBJ08",
                 "sess-1": {
+                "photodiode_quality": "True",
+                "photodiode_uploaded": "True",
+                "behavior_uploaded": "False",
+                "single_unit_uploaded": "False",
+                "LFP_processed": "True",
+                "LFP_uploaded": "True",
+                "photodiode_timestamps_acquired": "False",
                 "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-2": {
+                "photodiode_quality": "True",
+                "photodiode_uploaded": "True",
+                "behavior_uploaded": "False",
+                "single_unit_uploaded": "False",
+                "LFP_processed": "True",
+                "LFP_uploaded": "True",
+                "photodiode_timestamps_acquired": "False",
                 "SU_timestamps_file_generated": "True"
 
                 },
                 "sess-3": {
+                "photodiode_quality": "True",
+                "photodiode_uploaded": "True",
+                "behavior_uploaded": "False",
+                "single_unit_uploaded": "False",
+                "LFP_processed": "True",
+                "LFP_uploaded": "True",
+                "photodiode_timestamps_acquired": "False",
                 "SU_timestamps_file_generated": "True"
 
                 }
