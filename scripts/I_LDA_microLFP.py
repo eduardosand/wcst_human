@@ -1,7 +1,8 @@
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import cross_val_score, StratifiedKFold
 import numpy as np
-from GG_dPCA_LFP import lfp_prep, organize_data
+from BB_processlfp import lfp_prep
+from GG_dPCA_LFP import organize_data
 from G_dPCA import plot_signal_avg
 import scipy
 from scipy import stats
@@ -12,18 +13,22 @@ test_subject = 'IR95'
 test_session = 'sess-3'
 task = 'wcst'
 bp = 1000
-event_lock = 'Feedback'
-# event_lock = 'Onset'
+# event_lock = 'Feedback'
+event_lock = 'Onset'
 feature = 'correct'
 # feature = 'rule dimension'
 standardized_data = True
 # standardized_data = False
-electrode_selection = 'macrocontact'
+electrode_selection = 'all'
+# baseline=(2,2.5)
+baseline = (-0.5, 0)
+car_setting = False
 epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subject, test_session,
                                                                        task, event_lock=event_lock,
                                                                        feature=feature,
-                                                                       baseline=(2, 2.5), smooth=True,
-                                                                       electrode_selection=electrode_selection)
+                                                                       baseline=baseline, smooth=True,
+                                                                       electrode_selection=electrode_selection,
+                                                                       car=car_setting)
 
 organized_data_mean, organized_data, feedback_dict = organize_data(epochs_dataset, feature_values,
                                                                    standardized_data=standardized_data)
@@ -33,8 +38,15 @@ organized_data_mean, organized_data, feedback_dict = organize_data(epochs_datase
 n_neurons, n_cond, n_timepoints = organized_data_mean.shape
 feature_dict = feedback_dict
 # print('plotting now')
-# plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
-#                 extra_string=f'Normalization = {standardized_data} {event_lock}-lock', signal_names=microwire_names)
+extra_string_plot = f'{event_lock} - lock'
+if standardized_data:
+    extra_string_plot = extra_string_plot + ', normalized'
+if car_setting:
+    extra_string_plot = extra_string_plot + ', car'
+
+
+plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
+                extra_string=extra_string_plot, signal_names=microwire_names)
 
 mean_accuracies = []
 sem_accuracies = []
@@ -74,6 +86,8 @@ for i in range(n_timepoints):
 
 pvalues_corr = stats.false_discovery_control(p_values, method='bh')
 print(pvalues_corr)
+print(trial_time[pvalues_corr < 0.05])
+print(np.max(mean_accuracies))
 import matplotlib.pyplot as plt
 binsize = 0.5
 min_multiple = np.min(trial_time) // binsize
@@ -93,7 +107,10 @@ ax_curr = ax
 ax_curr.set_xlabel('Time (s)')
 ax_curr.set_xticks(time_ticks, time_tick_labels)
 extra_string_start = 'normalized' + ', bp and notch filtered'
-extra_string = f'{extra_string_start} {event_lock}-lock \n corrected for multiple comparisons \n dont drop trials'
+if car_setting:
+    extra_string = f'{extra_string_start} {event_lock}-lock \n corrected for multiple comparisons \n CAR'
+else:
+    extra_string = f'{extra_string_start} {event_lock}-lock \n corrected for multiple comparisons \n no CAR'
 plt.suptitle(f'Mean Accuracy of LDA on {electrode_selection} broadband LFP \n {test_subject} - session {test_session} '
              f'\n {extra_string}')
 plt.subplots_adjust(hspace=0.7, wspace=0.25, top=0.82, right=right_margin, left=0.1)
