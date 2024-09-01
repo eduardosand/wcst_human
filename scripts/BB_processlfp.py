@@ -13,6 +13,7 @@ from scipy.fftpack import fft, ifft, ifftshift, fftshift
 import matplotlib.pyplot as plt
 from scipy import signal
 from fooof import FOOOF
+from sklearn.preprocessing import StandardScaler
 
 
 def autocorr(x):
@@ -93,6 +94,83 @@ def auto_correlation(x, lag):
             result[lag - lag_min] = np.dot(x[lag:], x[:n - lag])
 
     return result
+
+
+def featurize(epochs_object, feature, norm=False):
+    """
+    This functions assumes mne epochs_object is provided which is set up as
+    n_epochs(trials) X n_electrodes(observations) X n_timepoints(observations in time)
+    :param epochs_object: MNE epochs object. The data in this object should be n_trials X n_electrodes X n_timepoints
+    :param feature: (np.array) size (n_epochs, )
+    :param norm: (optional) (bool) whether to z-score the data or just center
+    :return: organized_data_mean: (ndarray) shape (n_electrodes, n_cond, n_timepoints)
+    :return: organized_data: (ndarray) shape (n_epochs, n_electrodes, n_cond, n_timepoints)
+    :return: inv_feature_dict: (dict) keys are the values, values are the features they correspond to
+    """
+    epochs_dataset = epochs_object.get_data(copy=True)
+    n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
+    features = set(list(feature))
+
+    feature_dict = {}
+    feature_key_values = [(value, ind) for ind, value in enumerate(features)]
+    feature_dict.update(feature_key_values)
+    inv_feature_dict = {}
+    feature_key_values = [(ind, value) for ind, value in enumerate(features)]
+    inv_feature_dict.update(feature_key_values)
+    # rule_split = [list(rule[~np.isnan(rt)]).count(i) for i in set(list(rule[~np.isnan(rt)]))]
+    feature_split = [list(feature).count(i) for i in features]
+    # Here, we're making a better epochs object that is also factored by condition
+    # n_trials = min(feature_split)
+    organized_data = np.zeros((max(feature_split), n_electrodes, len(features), n_timepoints))
+    # organized_data = np.zeros((n_trials, n_electrodes, len(rule_dimensions), n_timepoints))
+    organized_data[organized_data == 0] = np.nan
+    for electrode in range(n_electrodes):
+        counts_dict = {}
+        key_values = [(i, 0) for i in feature]
+        counts_dict.update(key_values)
+        for epoch in range(n_epochs):
+            curr_feature = list(feature)[epoch]
+            # print(curr_feature)
+            # if counts_dict[curr_feature] >= min(feature_split):
+                # print(curr_feature)
+                # break
+                # continue
+            # else:
+                # print(epochs_dataset[epoch, electrode, :])
+            curr_count = counts_dict[curr_feature]
+                    # print(curr_count)
+            organized_data[curr_count, electrode, feature_dict[curr_feature], :] = epochs_dataset[epoch,
+                                                                                                  electrode, :]
+            counts_dict[curr_feature] += 1
+                # print(counts_dict)
+    # Center our data within electrodes
+    # organized_data -= np.nanmean(organized_data.reshape((n_trials, -1)), 1)[:, None, None]
+    # trial-average-data
+    if norm:
+        organized_data_mean = np.nanmean(organized_data, axis=0)
+        organized_data -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        organized_data /= np.nanstd(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        # organized_data_mean = np.nanmean(organized_data, axis=0)
+        organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        organized_data_mean /= np.nanstd(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+    else:
+        organized_data_mean = np.nanmean(organized_data, axis=0)
+        organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+    return organized_data_mean, organized_data, inv_feature_dict
+
+def trial_wise_processing(epochs_object, norm=True):
+    """
+    Concatenates data trial-wise and centers/zscores it
+    :param epochs_object: MNE object that contains the trialwise data
+    :param norm:  determines whether to zscore the data
+    :return: zscored_concatenated_data: (ndarray) shape (n_epochs, n_electrodes, n_timepoints)
+    """
+    epochs_dataset = epochs_object.get_data(copy=True)
+    n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
+    concatenated_data = np.transpose(epochs_dataset, axes=(1, 0, 2)).reshape(n_electrodes, -1)
+    ss = StandardScaler(with_mean=True, with_std=norm)
+    zscored_concatenated_data = ss.fit_transform(concatenated_data).T
+    return zscored_concatenated_data
 
 
 def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', baseline=(-0.5, 0),
@@ -489,6 +567,135 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         step_fs = 1 / sampling_rate
         trial_time = np.arange(tmin, tmax+step_fs, step_fs)
     return epochs_object, trial_time, electrode_names, feature_values
+
+
+def organize_data(epochs_object, feature_values, standardized_data=False,
+                  method='else'):
+    """
+    Idea for this function is take the output from lfp_prep and set up data for different analyses, namely, PCA, dPCA,
+    HFA etc
+    :param epochs_object: (Epoch): MNE Epoch object, data in here should be of
+    shape (n_trials X n_electrodes X n_timepoints)
+    :param microwire_names: (list): list of microwire names, should match in size to n_electrodes
+    :param feature_values:
+    :param standardized_data: (optional) Whether to normalized the data or not
+    :param method: (optional) - whether to organize the data for raw PCA, dPCA or other
+    :return: organized_data_mean: (ndarray) - shape (n_electrodes, n_cond, n_timepoints)
+    :return: organized_data: (ndarray) - might be different shape depending on method
+    :return: feedback_dict: (dict)
+    """
+    organized_data_mean, organized_data, feedback_dict = featurize(epochs_object, feature_values,
+                                                                   norm=standardized_data)
+    if method == 'PCA':
+        zscored_data = trial_wise_processing(epochs_object, norm=standardized_data)
+    elif method == 'dPCA':
+        zscored_data = organized_data
+    else:
+        # Z-score across trials for each electrode and condition separately
+        # Compute mean and std across trials
+        mean_across_trials = np.nanmean(organized_data, axis=0, keepdims=True)  # Shape: (1, 40, 2, 39)
+        std_across_trials = np.nanstd(organized_data, axis=0, keepdims=True)  # Shape: (1, 40, 2, 39)
+
+        # Apply z-scoring across trials
+        zscored_data = (organized_data - mean_across_trials) / std_across_trials
+        # zscored_data = organized_data
+    return organized_data_mean, zscored_data, feedback_dict
+
+
+def plot_signal_avg(organized_data_mean, subject, session, trial_time,
+                    labels=None, extra_string='', signal_names=None, pvalues=None):
+    """
+    Plots average signal for each condition and electrode
+    :param organized_data_mean: (ndarray): Shape (n_electrodes, n_conditions, n_timepoints).
+    :param subject: (str): subject identifier
+    :param session: (str): subject identifier
+    :param trial_time: (ndarray): Timepoints corresponding to each sample in organized_data_mean. Shape (n_timepoints,)
+    :param labels: (dictionary, optional): feature labels for the conditions. Defaults to numerical labels.
+    :param extra_string: (str, optional): Additional string to include in the plot title.
+    :param signal_names: (list, optional): Names of the signals/electrodes, Defaults to None.
+    :param pvalues: (ndarray): Shape (n_electrodes, n_timepoints): Gives pvalues using permutation test to check for
+    differences. Allows for visualization of significant pvalues. Defaults to None.
+    :returns: None
+    """
+    binsize = 0.25
+    min_multiple = np.min(trial_time) // binsize
+    time_ticks = np.arange(min_multiple*binsize, np.max(trial_time), step=binsize)
+    time_tick_labels = time_ticks
+    print(time_ticks)
+    print('wtf')
+    time_tick_labels = [f'{i:.1f}' for i in time_tick_labels]
+    time_diff = np.diff(trial_time)
+    n_electrodes, n_cond, n_timepoints = organized_data_mean.shape
+
+    if labels is None:
+        labels = dict(zip(np.arange(n_cond), np.arange(n_cond)))
+
+    if len(labels) == 3:
+        color_dict = dict(zip(labels, ['red', 'green', 'blue']))
+    elif len(labels) == 2:
+        color_dict = dict(zip(labels, ['purple', 'orange']))
+    else:
+        color_palette = ['red', 'green', 'blue', 'purple', 'orange', 'cyan', 'magenta', 'yellow']
+        color_dict = dict(zip(labels, color_palette[:len(labels)]))
+
+    if signal_names is None:
+        signal_names = [f'Signal {i}' for i in range(organized_data_mean.shape[0])]
+
+    # Calculate the maximum label length to adjust the right margin dynamically
+    max_label_length = max(len(str(label)) for label in labels.values())
+    right_margin = 0.7 + max_label_length * 0.01
+
+    n_plots = 10
+    count = 0
+    ncols = 2
+    nrows = 5
+    fig, ax = plt.subplots(nrows, ncols, figsize=(7, 5), sharex=True)
+
+    for ind in range(n_electrodes):
+        # make a new plot every 10 signals
+        if ind % n_plots == 0 and ind != 0:
+            for ax_curr in ax[-1, :]:
+                ax_curr.set_xlabel('Time (s)')
+                ax_curr.set_xticks(time_ticks, time_tick_labels)
+
+            plt.suptitle(f'Mean Activity of SU \n {subject} - session {session} \n {extra_string}')
+            plt.subplots_adjust(hspace=0.7, wspace=0.25, top=0.82, right=right_margin, left=0.1)
+
+            # we're plotting the same thing in each subplot, so only grab labels for one plot
+            lines, labels = ax[0, 0].get_legend_handles_labels()
+            fig.legend(lines, labels, loc='right', ncol=1)
+            plt.show()
+
+            fig, ax = plt.subplots(nrows, ncols, figsize=(7, 5), sharex=True)
+            count = 0
+
+        ax_curr = ax[count//2, count % 2]
+        for cond in range(n_cond):
+            ax_curr.plot(trial_time, organized_data_mean[ind, cond], label=labels[cond], color=color_dict[cond])
+        if pvalues is not None:
+            for t in range(len(pvalues[ind, :])):
+                if pvalues[ind, t] < 0.05:
+                    ax_curr.axvspan(trial_time[t]-time_diff[t-1]/2, trial_time[t]+time_diff[t]/2, color='red',
+                                    alpha=0.3)
+        ax_curr.axvspan(0.3, 0.6, color='grey', alpha=0.3)
+        ax_curr.axvline(0, linestyle='--', c='black')
+        ax_curr.set_title(signal_names[ind])
+        ax_curr.set_xlabel('')
+        ax_curr.set_xticks([])
+        count += 1
+
+    for ax_curr in ax[-1, :]:
+        ax_curr.set_xlabel('Time (s)')
+        ax_curr.set_xticks(time_ticks, time_tick_labels)
+
+    plt.suptitle(f'Mean Activity of SU \n {subject} - session {session} \n {extra_string}')
+    plt.subplots_adjust(hspace=0.7, wspace=0.25, top=0.82, right=right_margin, left=0.1)
+
+    # we're plotting the same thing in each subplot, so only grab labels for one plot
+    lines, labels = ax[0, 0].get_legend_handles_labels()
+    fig.legend(lines, labels, loc='right', ncol=1)
+
+    plt.show()
 
 
 def main():
