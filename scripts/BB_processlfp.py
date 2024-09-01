@@ -7,9 +7,12 @@ import pandas as pd
 import mne
 from intracranial_ephys_utils.load_data import read_file, get_file_info
 from intracranial_ephys_utils.preprocess import make_trialwise_data, smooth_data
+from intracranial_ephys_utils.manual_process import data_clean_viewer
 from behavior_analysis import process_wcst_behavior
 from scipy.fftpack import fft, ifft, ifftshift, fftshift
 import matplotlib.pyplot as plt
+from scipy import signal
+from fooof import FOOOF
 
 
 def autocorr(x):
@@ -76,6 +79,22 @@ def autocorr_two(x):
     # x2 = ifft(spectrum)
 
 
+def auto_correlation(x, lag):
+    n = len(x)
+    lag_max = int(abs(lag))
+    lag_min = -int(abs(lag))
+    # Allocate an array for the correlation result for the desired range of lags
+    result = np.zeros(int(lag_max - lag_min + 1))
+
+    for lag in range(lag_min, lag_max + 1):
+        if lag < 0:
+            result[lag - lag_min] = np.dot(x[:n + lag], x[-lag:])
+        else:
+            result[lag - lag_min] = np.dot(x[lag:], x[:n - lag])
+
+    return result
+
+
 def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', baseline=(-0.5, 0),
              smooth=False, electrode_selection='all', car=True):
     """
@@ -122,10 +141,10 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     elif event_lock == 'Feedback':
         event_times = feedback_times
         tmin = -0.5
-        # tmax = 2.5
+        tmax = 2.5
         baseline = baseline
-        # tmax_actual = tmax - 1.
-        tmax = 1.5
+        tmax_actual = tmax - 1.
+        # tmax = 1.5
         tmax_actual = tmax
         tmin_actual = tmin
 
@@ -156,7 +175,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     wm_electrodes = sbj_metadata[subject][session]['dropped_electrodes_wm']
     macro_noisy = sbj_metadata[subject][session]['dropped_macros_noisy']
     no_reference_electrodes = sbj_metadata[subject][session]['dropped_macros_no_reference']
-    dropped_electrodes = dropped_electrodes_reference + dropped_electrodes_noisy #+ dropped_electrodes_micro_PED
+    dropped_electrodes = dropped_electrodes_reference + dropped_electrodes_noisy + dropped_electrodes_micro_PED
     dropped_macrocontacts = oob_electrodes + no_reference_electrodes + macro_noisy + wm_electrodes
     # prior to dropping
     print(dataset.shape)
@@ -212,7 +231,6 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     dataset = dataset[electrodes_ind, :]
     print('dropping white matter and out of brain electrodes')
     print(dataset.shape)
-    print(electrode_names)
     # following rereferencing we'll band pass filter and notch filtering to remove HF noise and power line noise for
     # both macrocontacts and microwires
     h_freq = 200
@@ -260,39 +278,115 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     assert len(set(fs)) == 1
     sampling_rate = fs[0]
 
-    # ind = 5
-    # single_electrode = dataset[ind, :]
-    # correlation_mLAC2 = autocorr(single_electrode)
-    # correlation_fast_mLAC2 = autocorr_two(single_electrode)
+    # # look at data post filtering to see if uPEDs are present
+    # # data_directory = Path(f'{os.pardir}/data/{subject}/{session}')
+    # # data_clean_viewer(subject, session, task, data_directory, electrode_names, lfp_dataset, int(fs[0]))
+    # no_ped_ind = 30
+    # ped_ind = 33
+    # ped_electrode_lfp = lfp_dataset[ped_ind, :]
+    # no_ped_electrode_lfp = lfp_dataset[no_ped_ind, :]
+    # auto_correlo_time = 2
+    # lag = auto_correlo_time*sampling_rate
+    # correlation_ped = auto_correlation(ped_electrode_lfp, lag)
+    # correlation_no_ped = auto_correlation(no_ped_electrode_lfp, lag)
     # fig, ax = plt.subplots()
-    # # plt.plot(correlation_mLAC2, color='green', label='exact')
-    # # plt.plot(correlation_mLAC2_third, color='blue', label='fast, third option')
-    # tmax = 5  # seconds
-    # d_time = np.arange(0, tmax, round(1 / sampling_rate, 4))
-    # plt.plot(d_time, correlation_fast_mLAC2[:int(tmax * sampling_rate)], color='blue', label='fast')
+    # d_time = np.arange(-auto_correlo_time, auto_correlo_time+round(1/sampling_rate, 4), round(1/sampling_rate, 4))
+    # plt.plot(d_time, correlation_ped, color='green', label='ped')
+    # plt.plot(d_time,correlation_no_ped, color='blue', label='no ped')
+    # # tmax = 5  # seconds
+    # # d_time = np.arange(0, tmax, round(1 / sampling_rate, 4))
+    # # plt.plot( ped_[:int(tmax * sampling_rate)], color='blue', label='fast')
     # plt.legend()
-    # plt.title(f'Autocorrelolgram of {electrode_names[ind]}')
+    # plt.title(f'Autocorrelolgram of {electrode_names[ped_ind] and electrode_names[no_ped_ind]}')
     # # plt.xlim([0, int(10*sampling_rate)])
     # # plt.ylim([-10,10])
     # plt.show()
     #
     # # plot power spectrum
-    # ind = 0
-    # fft_values = np.fft.fft(dataset[ind, :])
-    # fft_freqs = np.fft.fftfreq(len(dataset[ind, :]), round(1 / sampling_rate, 4))
+    # first_ind = 30
+    # fft_values_noped = np.fft.fft(lfp_dataset[first_ind, :])
+    # fft_freqs_noped = np.fft.fftfreq(len(lfp_dataset[first_ind, :]), round(1 / sampling_rate, 4))
     #
     # # power spectrum (magnitude squared of FFT)
-    # power_spectrum = np.abs(fft_values)**2
+    # power_spectrum_noped = np.abs(fft_values_noped)**2
     #
     # # Only plot the positive half of the spectrum (symmetry in FFT)
-    # half_n = len(dataset[ind, :]) // 2
-    # plt.plot(fft_freqs[:half_n], power_spectrum[:half_n])
-    # plt.title(f'Power Spectrum {electrode_names[ind]}')
+    # half_n = len(dataset[first_ind, :]) // 2
+    # plt.plot(fft_freqs_noped[:half_n], power_spectrum_noped[:half_n])
+    # plt.title(f'Power Spectrum {electrode_names[first_ind]}')
     # plt.xlabel('Frequency (Hz)')
     # plt.xlim([0, 20])
     # plt.ylabel('Power')
     # plt.grid(True)
     # plt.show()
+    #
+    # second_ind = 33
+    # fft_values_PED = np.fft.fft(lfp_dataset[second_ind, :])
+    # fft_freqs_PED = np.fft.fftfreq(len(lfp_dataset[second_ind, :]), round(1 / sampling_rate, 4))
+    #
+    # # power spectrum (magnitude squared of FFT)
+    # power_spectrum_PED = np.abs(fft_values_PED) ** 2
+    #
+    # # Only plot the positive half of the spectrum (symmetry in FFT)
+    # half_n = len(lfp_dataset[second_ind, :]) // 2
+    # plt.plot(fft_freqs_PED[:half_n], power_spectrum_PED[:half_n])
+    # plt.title(f'Power Spectrum {electrode_names[second_ind]}')
+    # plt.xlabel('Frequency (Hz)')
+    # plt.xlim([0, 20])
+    # plt.ylabel('Power')
+    # plt.grid(True)
+    # plt.show()
+    #
+    # lowfreq = 1
+    # high_freq = 2
+    # butterworth_bandpass = signal.butter(4, (lowfreq, high_freq), 'bp', fs=sampling_rate, output='sos')
+    # low_ped_freq = 8
+    # high_ped_freq = 20
+    # ped_bandpass = signal.butter(4, (low_ped_freq, high_ped_freq), 'bp', fs=sampling_rate,
+    #                                      output='sos')
+    # lfp_noPED = lfp_dataset[first_ind, :]
+    # lfp_wPED = lfp_dataset[second_ind, :]
+    # heartrate_signal_noPED = signal.sosfiltfilt(butterworth_bandpass, lfp_noPED)
+    # heartrate_signal_wPED = signal.sosfiltfilt(butterworth_bandpass, lfp_wPED)
+    # ped_signal_noPED = signal.sosfiltfilt(ped_bandpass, lfp_noPED)
+    # ped_signal_PED = signal.sosfiltfilt(ped_bandpass, lfp_wPED)
+    # power_noPED = np.sum(heartrate_signal_noPED**2)
+    # power_wPED = np.sum(heartrate_signal_wPED**2)
+    # print(power_noPED)
+    # print(power_wPED)
+    # tmax = 80
+    # ind_max = int(tmax*sampling_rate)
+    # fig, ax = plt.subplots(3, sharex=True)
+    # time_x = np.arange(0, tmax, round(1/sampling_rate, 4))
+    # ax[0].plot(time_x, lfp_noPED[0:ind_max], label='No PED', color='red', alpha=0.5)
+    # ax[0].plot(time_x, lfp_wPED[0:ind_max], label='With PED', color='blue', alpha=0.5)
+    # ax[1].plot(time_x, heartrate_signal_noPED[0:ind_max], label='No PED', color='red')
+    # ax[1].plot(time_x, heartrate_signal_wPED[0:ind_max], label='With PED', color='blue')
+    # ax[1].set_title(f'Bandpass from {lowfreq} to {high_freq} ')
+    # ax[2].plot(time_x, ped_signal_noPED[0:ind_max], label='No PED', color='red', alpha=0.5)
+    # ax[2].plot(time_x, ped_signal_PED[0:ind_max], label='With PED', color='blue', alpha=0.5)
+    # ax[2].set_title(f'Bandpass from {low_ped_freq} to {high_ped_freq} ')
+    # ax[2].set_xlabel('Time (seconds)')
+    # plt.legend()
+    # plt.suptitle(f'Comparison between signals {electrode_names[first_ind]} and {electrode_names[second_ind]}')
+    # plt.tight_layout()
+    # plt.show()
+    #
+    # # fit fooof to get peaks, and see if peaks are in the range seen by our histogram
+    # # Import the FOOOF object
+    #
+    # # Initialize FOOOF object
+    # fm = FOOOF()
+    #
+    # # Define frequency range across which to model the spectrum
+    # freq_range = [0.5, 70]
+    #
+    # # Model the power spectrum with FOOOF, and print out a report
+    # fm.report(fft_freqs_noped[:half_n],  power_spectrum_noped[:half_n], freq_range)
+    #
+    #
+    # fm.report(fft_freqs_PED[:half_n],  power_spectrum_PED[:half_n], freq_range)
+
 
     # # taken from 2024 Rutishauser paper on human hippocampal neurons, Nature
     # mean_lfp_dataset = np.mean(lfp_dataset, axis=0)
@@ -304,7 +398,7 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     # std_zscored_lfp_dataset = np.std(zscored_lfp, axis=0)
     # rezscored_lfp = (zscored_lfp - mean_zscored_lfp_dataset) / std_zscored_lfp_dataset
     # artifact_indices = [i for i in range(zscored_lfp.shape[1]) if np.any(abs(rezscored_lfp[:, i]) > 4)]
-
+    #
     # dilation_factor = 0.050
     # window_size = int(dilation_factor * fs[0])  # 50 msec
     # # next loop through this data and find where runs end
@@ -334,8 +428,8 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     # artifact_durations = np.round([stop_events[i] - start_events[i] for i in range(len(stop_events))] / sampling_rate,
     #                               4)
     # # remove anything that's too short to matter, say 50 msec
-    # start_events = np.array(start_events)[artifact_durations > dilation_factor/2]
-    # artifact_durations = artifact_durations[artifact_durations > dilation_factor/2]
+    # start_events = np.array(start_events)[artifact_durations > dilation_factor]
+    # artifact_durations = artifact_durations[artifact_durations > dilation_factor]
     # start_artifacts = np.round(start_events / sampling_rate, 4)
     # artifacts_descriptions = len(artifact_durations) * ['bad artifacts']
     # our .csv file containing timestamps does have it in terms of samples but expecting sampling rate of photodiode
@@ -356,10 +450,10 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         # durations = [x for _, x in sorted(zip(onsets, durations))]
         # description = [x for _, x in sorted(zip(onsets, description))]
         # onsets = sorted(onsets)
-        # annotations = mne.Annotations(onsets, durations, description)
-        # better_annotations_df = pd.DataFrame(onsets, columns=['onsets'])
-        # better_annotations_df['durations'] = durations
-        # better_annotations_df['description'] = description
+        annotations = mne.Annotations(onsets, durations, description)
+        better_annotations_df = pd.DataFrame(onsets, columns=['onsets'])
+        better_annotations_df['durations'] = durations
+        better_annotations_df['description'] = description
     else:
         annotations = None
     epochs_object = make_trialwise_data(event_times_converted, electrode_names, sampling_rate, lfp_dataset,
@@ -403,7 +497,7 @@ def main():
     test_task = 'wcst'
     events_file_name = f'{test_subject}_{test_session}_{test_task}_events.csv'
     events_path = Path(f'{os.pardir}/data/{test_subject}/{test_session}/{events_file_name}')
-    save_small_dataset(test_subject, test_session, task_name=test_task, events_file=events_path)
+    # save_small_dataset(test_subject, test_session, task_name=test_task, events_file=events_path)
 
 
 if __name__ == "__main__":
