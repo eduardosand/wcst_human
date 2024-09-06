@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from fooof import FOOOF
 from sklearn.preprocessing import StandardScaler
+import scipy.signal as signal
 
 
 def autocorr(x):
@@ -109,8 +110,7 @@ def featurize(epochs_object, feature, norm=False):
     """
     epochs_dataset = epochs_object.get_data(copy=True)
     n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
-    features = set(list(feature))
-
+    features = sorted(set(list(feature)))
     feature_dict = {}
     feature_key_values = [(value, ind) for ind, value in enumerate(features)]
     feature_dict.update(feature_key_values)
@@ -130,33 +130,34 @@ def featurize(epochs_object, feature, norm=False):
         counts_dict.update(key_values)
         for epoch in range(n_epochs):
             curr_feature = list(feature)[epoch]
-            # print(curr_feature)
-            # if counts_dict[curr_feature] >= min(feature_split):
-                # print(curr_feature)
-                # break
-                # continue
-            # else:
-                # print(epochs_dataset[epoch, electrode, :])
             curr_count = counts_dict[curr_feature]
-                    # print(curr_count)
             organized_data[curr_count, electrode, feature_dict[curr_feature], :] = epochs_dataset[epoch,
                                                                                                   electrode, :]
             counts_dict[curr_feature] += 1
-                # print(counts_dict)
+
     # Center our data within electrodes
-    # organized_data -= np.nanmean(organized_data.reshape((n_trials, -1)), 1)[:, None, None]
-    # trial-average-data
     if norm:
-        organized_data_mean = np.nanmean(organized_data, axis=0)
-        organized_data -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
-        organized_data /= np.nanstd(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
         # organized_data_mean = np.nanmean(organized_data, axis=0)
-        organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
-        organized_data_mean /= np.nanstd(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        # organized_data -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        # organized_data /= np.nanstd(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        # organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        # organized_data_mean /= np.nanstd(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+
+        # # We'd like to normalize the regular data with respect to the trial itself
+        organized_data = ((organized_data - np.nanmean(organized_data, axis=3, keepdims=True)) /
+                                            np.nanstd(organized_data, axis=3, keepdims=True))
+        organized_data_mean = np.nanmean(organized_data, axis=0)
+        # organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        # organized_data_mean /= np.nanstd(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
     else:
         organized_data_mean = np.nanmean(organized_data, axis=0)
-        organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        # organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
+        # organized_data_center_within_trial = organized_data - np.expand_dims(np.nanmean(organized_data, axis=3),
+        #                                                                      axis=3)
+        # organized_data_mean = np.nanmean(organized_data_center_within_trial, axis=0)
+        # organized_data_mean -= np.nanmean(organized_data_mean.reshape((n_electrodes, -1)), 1)[:, None, None]
     return organized_data_mean, organized_data, inv_feature_dict
+
 
 def trial_wise_processing(epochs_object, norm=True):
     """
@@ -246,14 +247,15 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     file_path = Path(f'{os.pardir}/scripts/subject_deets.json')
     with open(file_path) as json_data:
         sbj_metadata = json.load(json_data)
-    dropped_electrodes_noisy = sbj_metadata[subject][session]['dropped_electrodes_noisy']
-    dropped_electrodes_reference = sbj_metadata[subject][session]['dropped_electrodes_reference']
-    dropped_electrodes_micro_PED = sbj_metadata[subject][session]['dropped_electrodes_microperiodic_epileptic_discharge']
+    dropped_electrodes_noisy = sbj_metadata[subject][session]['dropped_micros_noisy']
+    dropped_electrodes_reference = sbj_metadata[subject][session]['dropped_micros_reference']
+    dropped_electrodes_micro_PED = sbj_metadata[subject][session]['dropped_microperiodic_epileptic_discharge']
+    clipping_micros = sbj_metadata[subject][session]['dropped_micros_clipping']
     oob_electrodes = sbj_metadata[subject][session]['dropped_electrodes_oob']
     wm_electrodes = sbj_metadata[subject][session]['dropped_electrodes_wm']
     macro_noisy = sbj_metadata[subject][session]['dropped_macros_noisy']
     no_reference_electrodes = sbj_metadata[subject][session]['dropped_macros_no_reference']
-    dropped_electrodes = dropped_electrodes_reference + dropped_electrodes_noisy + dropped_electrodes_micro_PED
+    dropped_electrodes = dropped_electrodes_reference + dropped_electrodes_noisy + dropped_electrodes_micro_PED + clipping_micros
     dropped_macrocontacts = oob_electrodes + no_reference_electrodes + macro_noisy + wm_electrodes
     # prior to dropping
     print(dataset.shape)
@@ -466,9 +468,56 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
     # fm.report(fft_freqs_PED[:half_n],  power_spectrum_PED[:half_n], freq_range)
 
 
+    # # taken from J.Z., based on criteria from Tatum 2016, the Neurodiagnostic Journal
+    # # here we'll bandpass the data AGAIN but in the beta range
+    # # then zscore, and finally remove anything above 8 std away from mean
+    # butterworth_bandpass = signal.butter(4, (20, 40), 'bp', fs=fs[0], output='sos')
+    # beta_lfp_dataset = signal.sosfiltfilt(butterworth_bandpass, lfp_dataset, axis=1)
+    # mean_beta = np.mean(beta_lfp_dataset, axis=1)
+    # std_beta = np.std(beta_lfp_dataset, axis=1)
+    # zscored_lfp = (beta_lfp_dataset - np.expand_dims(mean_beta, axis=1)) / np.expand_dims(std_beta, axis=1)
+    # zscored_lfp[abs(zscored_lfp) <= 8] = 0.
+    # artifact_indices = [i for i in range(zscored_lfp.shape[1]) if np.any(abs(zscored_lfp[:, i]) > 8.)]
+    # dilation_factor = 0.050
+    # window_size = int(dilation_factor * fs[0])  # 50 msec
+    # # next loop through this data and find where runs end
+    #
+    # start_events = []
+    # stop_events = []
+    # i = 0
+    # while i < len(artifact_indices):
+    #     # Start a new event
+    #     start_events.append(artifact_indices[i])
+    #
+    #     # Initialize stop value to the current artifact index
+    #     current_stop_value = artifact_indices[i]
+    #
+    #     # Check for any subsequent timestamps within the 50 ms window
+    #     while (i + 1 < len(artifact_indices) and
+    #            artifact_indices[i + 1] <= current_stop_value + window_size):
+    #         i += 1
+    #         current_stop_value = artifact_indices[i]  # Expand the stop value
+    #
+    #     # Once no more timestamps are within 50 ms, mark the stop of the event
+    #     stop_events.append(current_stop_value)
+    #
+    #     # Move to the next potential event
+    #     i += 1
+    #
+    # artifact_durations = np.round([stop_events[i] - start_events[i] for i in range(len(stop_events))] / sampling_rate,
+    #                               4)
+    # # remove anything that's too short to matter, say 50 msec
+    # start_events = np.array(start_events)[artifact_durations > dilation_factor]
+    # artifact_durations = artifact_durations[artifact_durations > dilation_factor]
+    # start_artifacts = np.round(start_events / sampling_rate, 4)
+    # artifacts_descriptions = len(artifact_durations) * ['bad Zheng artifacts']
+
+
+
+
     # # taken from 2024 Rutishauser paper on human hippocampal neurons, Nature
-    # mean_lfp_dataset = np.mean(lfp_dataset, axis=0)
-    # std_lfp_dataset = np.std(lfp_dataset, axis=0)
+    # mean_lfp_dataset = np.mean(lfp_dataset, axis=1)
+    # std_lfp_dataset = np.std(lfp_dataset, axis=1)
     # zscored_lfp = (lfp_dataset - mean_lfp_dataset) / std_lfp_dataset
     # zscored_lfp[zscored_lfp >= 6] = 6.
     # zscored_lfp[zscored_lfp <= -6] = -6.
@@ -525,24 +574,58 @@ def lfp_prep(subject, session, task, event_lock='Onset', feature='correct', base
         onsets = list(annotations_df['time']) #+ list(start_artifacts)
         durations = list(annotations_df['duration']) #+ list(artifact_durations)
         description = list(annotations_df['label']) #+ list(artifacts_descriptions)
+        if electrode_selection == 'macrocontact':
+            selected_events = [ind for ind, label_event in enumerate(description) if
+                               label_event != 'bad epileptic activity micro']
+            onsets = np.array(onsets)[selected_events]
+            durations = np.array(durations)[selected_events]
+            description = np.array(description)[selected_events]
+
         # durations = [x for _, x in sorted(zip(onsets, durations))]
         # description = [x for _, x in sorted(zip(onsets, description))]
         # onsets = sorted(onsets)
         annotations = mne.Annotations(onsets, durations, description)
-        better_annotations_df = pd.DataFrame(onsets, columns=['onsets'])
-        better_annotations_df['durations'] = durations
-        better_annotations_df['description'] = description
+        # better_annotations_df = pd.DataFrame(onsets, columns=['onsets'])
+        # better_annotations_df['durations'] = durations
+        # better_annotations_df['description'] = description
     else:
         annotations = None
-    epochs_object = make_trialwise_data(event_times_converted, electrode_names, sampling_rate, lfp_dataset,
+    epochs_object, trial_based_data = make_trialwise_data(event_times_converted, electrode_names, sampling_rate, lfp_dataset,
                                         tmin=tmin,
                                         tmax=tmax,
                                         baseline=baseline, annotations=annotations)
 
-    # generate timestamps for data
-    # trial_time_full = np.arange(tmin+step, tmax, step)
-    # do a zscore style analysis here to remove some data
-    print(epochs_object.get_data())
+    # # do a zscore style analysis here to remove some data
+    # # trial_based_data = epochs_object.get_data(copy=True)
+    # # should n_trials X n_electrodes X n_timepoints
+    # # taken from 2024 Rutishauser paper on human hippocampal neurons, Nature
+    # # we want to zscore relative to the electrode, across all trials
+    # mean_lfp_dataset = np.mean(trial_based_data, axis=(0, 2))
+    # std_lfp_dataset = np.std(trial_based_data, axis=(0, 2))
+    # zscored_lfp = ((trial_based_data - np.expand_dims(mean_lfp_dataset, axis=(0, 2))) /
+    #                np.expand_dims(std_lfp_dataset, axis=(0, 2)))
+    # zscored_lfp[zscored_lfp >= 6] = 6.
+    # zscored_lfp[zscored_lfp <= -6] = -6.
+    # mean_zscored_lfp_dataset = np.mean(zscored_lfp, axis=(0, 2))
+    # std_zscored_lfp_dataset = np.std(zscored_lfp, axis=(0, 2))
+    # rezscored_lfp = ((zscored_lfp - np.expand_dims(mean_zscored_lfp_dataset, axis=(0, 2))) /
+    #                  np.expand_dims(std_zscored_lfp_dataset, axis=(0, 2)))
+    # # should have the same as the epochs_dataset
+    # n_trials, n_electrodes, n_timepoints = trial_based_data.shape
+    # for i in range(n_electrodes):
+    #     for j in range(n_trials):
+    #         if np.any(abs(rezscored_lfp[j, i, :]) > 4):
+    #             epochs_object.annotations.append(onset=epochs_object[j].events[0, 0] / epochs_object.info['sfreq'],
+    #                                              duration=0.05,
+    #                                              description=f'bad epileptic Rutishauser {electrode_names[i]}')
+
+
+    # interim_save = processed_data_directory / f'{subject}-{session}-{task}-{electrode_selection}-Rutishauser.fif'
+    # # Save the epochs to a file
+    # epochs_object.save(interim_save, overwrite=True)
+
+    # Reload the epochs with reject_by_annotation=True
+    # epochs_object = mne.read_epochs(interim_save)
     print(epochs_object.drop_log)
     epochs_object.drop_bad()
     print(epochs_object.drop_log)
@@ -590,16 +673,95 @@ def organize_data(epochs_object, feature_values, standardized_data=False,
         zscored_data = trial_wise_processing(epochs_object, norm=standardized_data)
     elif method == 'dPCA':
         zscored_data = organized_data
-    else:
-        # Z-score across trials for each electrode and condition separately
-        # Compute mean and std across trials
-        mean_across_trials = np.nanmean(organized_data, axis=0, keepdims=True)  # Shape: (1, 40, 2, 39)
-        std_across_trials = np.nanstd(organized_data, axis=0, keepdims=True)  # Shape: (1, 40, 2, 39)
+    elif method == 'LDA':
+        # here we'd like to perform our standardizing tricks on just the organized data
+        epochs_dataset = epochs_object.get_data(copy=True)
+        n_epochs, n_electrodes, n_timepoints = epochs_dataset.shape
 
-        # Apply z-scoring across trials
-        zscored_data = (organized_data - mean_across_trials) / std_across_trials
-        # zscored_data = organized_data
+        # Center our data within electrodes
+        if standardized_data:
+            # epochs_dataset_mean = np.nanmean(epochs_dataset, axis=0, keepdims=True)
+            # zscored_data = (epochs_dataset - epochs_dataset_mean) / np.nanstd(epochs_dataset, axis=0, keepdims=True)
+            # # Compute mean and std across trials
+            # mean_across_trials = np.nanmean(zscored_data, axis=0, keepdims=True)
+            # std_across_trials = np.nanstd(zscored_data, axis=0, keepdims=True)
+            #
+            # # Apply z-scoring across trials
+            # zscored_data = (zscored_data - mean_across_trials) / std_across_trials
+
+            # # # We'd like to normalize the regular data with respect to the trial itself
+            zscored_data = ((epochs_dataset - np.nanmean(epochs_dataset, axis=2, keepdims=True)) /
+                            np.nanstd(epochs_dataset, axis=2, keepdims=True))
+    else:
+        zscored_data = organized_data
+        # # Z-score across trials for each electrode and condition separately
+        # # Compute mean and std across trials
+        # mean_across_trials = np.nanmean(organized_data, axis=0, keepdims=True)  # Shape: (1, 40, 2, 39)
+        # std_across_trials = np.nanstd(organized_data, axis=0, keepdims=True)  # Shape: (1, 40, 2, 39)
+        #
+        # # Apply z-scoring across trials
+        # zscored_data = (organized_data - mean_across_trials) / std_across_trials
     return organized_data_mean, zscored_data, feedback_dict
+
+
+def morlet(sbj, session, task, epochs, standardized=True, baseline=(2,2.5), trial_baseline=False):
+    """
+    Perform a time frequency decomposition using Morlet wavelets. Use fewer cycles on higher frequencies
+    This serves to get a quick glance at the bands that may be involved in task.
+    :param sbj: (string) : Subject Identifier
+    :param session: (string): Session Identifier
+    :param task: (string): Task Identifier
+    :param epochs: (Epoch) : MNE Epoch object
+    :param standardized: (bool) (optional): Whether to lognormalize
+    :param baseline: (bool) (optional):
+    :return: tfr_power (Power) : Time Frequency Decomposition of epoched data, without averaging.
+                                Data in this class will be an array of following dimensions
+                                (n_epochs, n_electrodes, n_freq, n_timepoints)
+    """
+    # freqs = np.array([0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 19, 21, 24, 27, 30, 35,
+    #                   40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180])
+    # bwidth = np.array([0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 5, 5,
+    #                    5, 5, 5, 5, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 20])
+    freqs = np.array([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 19, 21, 24, 27, 30, 35,
+                      40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200, 220])
+    bwidth = np.array([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 5, 5,
+                       5, 5, 5, 5, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 20, 20, 20])
+
+    freqs = np.array(freqs)
+    bwidth = np.array(bwidth)
+
+    time_bandwidth = 2
+    n_cycles = freqs * time_bandwidth / bwidth
+    tfr_power = epochs.compute_tfr(
+        method="morlet", freqs=freqs, n_cycles=n_cycles, return_itc=False, average=False
+    )
+    path_directory = Path(f'{os.pardir}/data/{sbj}/{session}/preprocessed/')
+
+    print('log transforming')
+    for r in np.arange(tfr_power.data.shape[0]):
+        print('trial ', r + 1)
+        tfr_power.data[r] = np.log(tfr_power.data[r])
+
+    if standardized:
+        print('z-scoring to baseline')
+        bix = [a and b for a, b in zip(tfr_power.times >= baseline[0], tfr_power.times <= baseline[1])]
+        bmean = np.nanmean(tfr_power.data[:, :, :, bix], axis=(0, 3), keepdims=True)
+        bstd = np.nanstd(tfr_power.data[:, :, :, bix], axis=(0, 3), keepdims=True)
+        tfr_power.data -= bmean
+        tfr_power.data /= bstd
+
+    if trial_baseline:
+        print('subtracting baseline per trial')
+        bix = [a and b for a, b in zip(tfr_power.times >= baseline[0], tfr_power.times <= baseline[1])]
+        bmean = np.nanmean(tfr_power.data[:, :, :, bix], axis=(3), keepdims=True)
+        bstd = np.nanstd(tfr_power.data[:, :, :, bix], axis=(3), keepdims=True)
+        tfr_power.data -= bmean
+
+    # Finally compute average tfr on group level
+    tfr_power_avg = tfr_power.average()
+    file_path = path_directory / f"{sbj}_{session}_{task}_morlet_decomposition_tfr_{standardized}.h5"
+    tfr_power_avg.save(file_path, overwrite=True)
+    return tfr_power_avg
 
 
 def plot_signal_avg(organized_data_mean, subject, session, trial_time,
