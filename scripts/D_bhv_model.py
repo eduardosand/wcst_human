@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 import numpy as np
 import ssm
-import numpy.random as npr
 from bhv_data_convert import bhv_convert
 import pickle
 from sklearn.model_selection import KFold
@@ -11,7 +10,7 @@ from sklearn.model_selection import KFold
 # Tested may 2024
 
 
-def initializeObservation(glmhmm,glmhmmOne,sigma):
+def initializeObservation(glmhmm,glmhmmOne,sigma, rng_generator):
     """
     function to initialize observation weights of glmhmm
     :param glmhmm:
@@ -22,13 +21,14 @@ def initializeObservation(glmhmm,glmhmmOne,sigma):
 
     for k in range(glmhmm.K):
         obs_shape = glmhmmOne.observations.params[0].shape
-        glmhmm.observations.params[k] = glmhmmOne.observations.params[0] * (1 + sigma * npr.rand(obs_shape[0],
+        glmhmm.observations.params[k] = glmhmmOne.observations.params[0] * (1 + sigma *
+                                                                            rng_generator.random(obs_shape[0],
                                                                                                  obs_shape[1]))
 
     return glmhmm
 
 
-def initializeTransition(glmhmm,glmhmmOne,diagonalP,wZero):
+def initializeTransition(glmhmm,glmhmmOne,diagonalP,wZero, rng_generator):
     """
     function to initialize transition weights of glmhmm
     :param glmhmm:
@@ -38,8 +38,8 @@ def initializeTransition(glmhmm,glmhmmOne,diagonalP,wZero):
     :return:
     """
 
-    # initilize log_Ps variable
-    Ps = diagonalP * np.eye(glmhmm.K) + .05 * npr.rand(glmhmm.K, glmhmm.K)
+    # initialize log_Ps variable
+    Ps = diagonalP * np.eye(glmhmm.K) + .05 * rng_generator.random(glmhmm.K, glmhmm.K)
     Ps /= Ps.sum(axis=1, keepdims=True)
     glmhmm.transitions.log_Ps = np.log(Ps)
 
@@ -55,83 +55,129 @@ def initializeTransition(glmhmm,glmhmmOne,diagonalP,wZero):
 
 
 def main():
+    # Goals of the analysis:
+    # Try out two intercepts, try out multiple states
+    intercepts = [0, 1]
+    num_states_poss = [1, 2, 3, 4]
+    seeds = [1234567890, 2345678901, 3456789012, 4567890123, 5678901234, 6789012345, 7890123456, 8901234567,
+             9012345678, 12345678900]
     subject = 'IR95'
     session = 'sess-3'
-    intercept = 1
+    # intercept = 1
     glmType = 1  # Bernoulli
     glmLag = 1
-    num_states = 4
+    # num_states = 2
     observation_noise = 0
     diagonal_p = 0.9
     wzero = 1
     block_method = 0
     save_directory = Path(f"{os.pardir}/data/{subject}/{session}/model")
-    history_data, choice_data, history_labels = bhv_convert(subject, session, intercept, save_directory)
-    Xdata = history_data
-    Ydata = choice_data
+    for intercept in intercepts:
+        for num_states in num_states_poss:
+            history_data, choice_data, history_labels = bhv_convert(subject, session, intercept, save_directory)
+            Xdata = history_data
+            Ydata = choice_data
 
-    species = 'human'
-    subj = 'b01'
-    dataDirectory = Path(f'{os.pardir}/{os.pardir}/WCST_behavioral_model_and_analysis/rawData/inputs/{species}/{subj}')
-    # three of the parameters are solely related to the features of the input data
-    # which are presaved
-    glmLag = 2
-    dataName = Path(f'glm{glmType}_lag{glmLag}_int{intercept}.pickle')
+            species = 'human'
+            subj = 'b01'
+            dataDirectory = Path(f'{os.pardir}/{os.pardir}/WCST_behavioral_model_and_analysis/rawData/inputs/{species}/{subj}')
+            # three of the parameters are solely related to the features of the input data
+            # which are presaved
+            dataName = Path(f'glm{glmType}_lag{glmLag}_int{intercept}.pickle')
 
-    # Load training data
-    # note that for a human participant, this is a 5 len list (5 blocks) that each has a 12 len list (12 features)
-    # that is itself a 299*5 array (the history data for the first 299 trials that predict trials 2-300, where the
-    # array itself is the 4 possible locations followed by an intercept
-    # ydata is similar except that it correponds to chosen feature
-    with open(dataDirectory / dataName, 'rb') as f:
-        [XData_sample, YData_sample] = pickle.load(f)
+            # Load training data
+            # note that for a human participant, this is a 5 len list (5 blocks) that each has a 12 len list (12 features)
+            # that is itself a 299*5 array (the history data for the first 299 trials that predict trials 2-300, where the
+            # array itself is the 4 possible locations followed by an intercept
+            # ydata is similar except that it correponds to chosen feature
+            # with open(dataDirectory / dataName, 'rb') as f:
+            #     [XData_sample, YData_sample] = pickle.load(f)
 
-    # then map the rule to these keys to replace some things with 1
-    rule_dict = {'S': 'Problem', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
-                         'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'W': 'Texture', 'R': 'Texture'}
-    features = ['S0', 'T', 'C', 'Q', 'B', 'Y', 'G', 'M', 'L', 'P', 'S2', 'R']
-    feature_dict = dict(zip(features, np.linspace(0, 12)))
+            # then map the rule to these keys to replace some things with 1
+            rule_dict = {'S': 'Problem', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
+                                 'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'W': 'Texture', 'R': 'Texture'}
+            features = ['S0', 'T', 'C', 'Q', 'B', 'Y', 'G', 'M', 'L', 'P', 'S2', 'R']
+            feature_dict = dict(zip(features, np.linspace(0, 12)))
 
-    kf = KFold(n_splits=5)
+            kf = KFold(n_splits=5)
 
-    # We've gotten the folds
-    for i, (train_index, test_index) in enumerate(kf.split(Xdata, y=Ydata)):
-        print(f"Fold {i}:")
-        print(f"  Train: index={train_index}")
-        print(f"  Test:  index={test_index}")
-        Xtraindata = Xdata[train_index, :, :].reshape((len(features), -1, len(history_labels)))
-        Xtestdata = Xdata[test_index, :, :].reshape((len(features), -1, len(history_labels)))
-        Ytraindata = np.swapaxes(Ydata[train_index, :], 0, 1)
-        Ytestdata = np.swapaxes(Ydata[test_index, :], 0, 1)
+            # We've gotten the folds
+            for i, (train_index, test_index) in enumerate(kf.split(Xdata, y=Ydata)):
+                print(f"Fold {i}:")
+                print(f"  Train: index={train_index}")
+                print(f"  Test:  index={test_index}")
+                Xtraindata = Xdata[train_index, :, :].reshape((len(features), -1, len(history_labels)))
+                Xtestdata = Xdata[test_index, :, :].reshape((len(features), -1, len(history_labels)))
+                Ytraindata = np.swapaxes(Ydata[train_index, :], 0, 1)
+                Ytestdata = np.swapaxes(Ydata[test_index, :], 0, 1)
 
-        numInput = len(history_labels)
-        numTrialTrain = Xtraindata.shape[1]*Xtraindata.shape[0]
-        numTrialTest = Xtestdata.shape[1]*Xtestdata.shape[0]
-        Xtraindata = list(Xtraindata)
-        Xtestdata = list(Xtestdata)
-        Ytraindata = list(Ytraindata)
-        Ytestdata = list(Ytestdata)
-        glmhmmOne = ssm.HMM(1, 1, numInput, observations="input_driven_obs", observation_kwargs=dict(C=2),
-                            transitions='inputdriven')
-        fit_ll_One = glmhmmOne.fit(Ytraindata, inputs=Xtraindata, method='em', num_iters=2, tolerance=10**-4)
+                numInput = len(history_labels)
+                numTrialTrain = Xtraindata.shape[1]*Xtraindata.shape[0]
+                numTrialTest = Xtestdata.shape[1]*Xtestdata.shape[0]
+                Xtraindata = list(Xtraindata)
+                Xtestdata = list(Xtestdata)
+                Ytraindata = list(Ytraindata)
+                Ytestdata = list(Ytestdata)
+                train_ll_benchmark = 1000
+                test_ll_benchmark = 1000
+                train_ll_sum = 0
+                test_ll_sum = 0
+                for seed in seeds:
+                    rng = np.random.default_rng(seed)
+                    glmhmmOne = ssm.HMM(1, 1, numInput, observations="input_driven_obs", observation_kwargs=dict(C=2),
+                                        transitions='inputdriven')
+                    fit_ll_One = glmhmmOne.fit(Ytraindata, inputs=Xtraindata, method='em', num_iters=2, tolerance=10**-4)
 
-        glmhmm = ssm.HMM(num_states, 1, numInput, observations="input_driven_obs", observation_kwargs=dict(C=2),
-                            transitions='inputdriven')
+                    glmhmm = ssm.HMM(num_states, 1, numInput, observations="input_driven_obs", observation_kwargs=dict(C=2),
+                                        transitions='inputdriven')
 
-        glmhmm = initializeObservation(glmhmm, glmhmmOne, observation_noise)
-        glmhmm = initializeTransition(glmhmm, glmhmmOne, diagonal_p, wzero)
-        fit_ll = glmhmm.fit(Ytraindata, inputs=Xtraindata, method='adam', num_iters=10000)
+                    glmhmm = initializeObservation(glmhmm, glmhmmOne, observation_noise, rng)
+                    glmhmm = initializeTransition(glmhmm, glmhmmOne, diagonal_p, wzero, rng)
+                    fit_ll = glmhmm.fit(Ytraindata, inputs=Xtraindata, method='adam', num_iters=10000)
 
-        # Get performance
-        train_ll = glmhmm.log_likelihood(Ytraindata, inputs=Xtraindata) / numTrialTrain
-        test_ll = glmhmm.log_likelihood(Ytestdata, inputs=Xtestdata) / numTrialTest
+                    # Get performance
+                    train_ll = glmhmm.log_likelihood(Ytraindata, inputs=Xtraindata) / numTrialTrain
+                    test_ll = glmhmm.log_likelihood(Ytestdata, inputs=Xtestdata) / numTrialTest
 
-        print(train_ll)
-        print(test_ll)
-        save_name = (f'glmtype{glmType}_lag{glmLag}_intercept{intercept}_kfold{i}_numstates{num_states}_observationnoise'
-                     f'{observation_noise}_diagonalp{diagonal_p}_wzero{wzero}.pickle')
-        with open(save_directory / save_name, 'wb') as f:
-            pickle.dump([glmhmm, fit_ll, train_ll, test_ll, numTrialTrain, numTrialTest], f)
+                    # we'd like to save intermittently the best model over all the initializations
+                    if train_ll < train_ll_benchmark:
+                        best_train_glmhmm = glmhmm
+                        best_train_fit_ll = fit_ll
+                        train_ll_benchmark = train_ll
+                        best_train_train_ll = train_ll
+                        best_train_test_ll = test_ll
+                        best_train_numTrialTrain = numTrialTrain
+                        best_train_numTrialTest = numTrialTest
+                    if test_ll < test_ll_benchmark:
+                        best_test_glmhmm = glmhmm
+                        best_test_fit_ll = fit_ll
+                        test_ll_benchmark = test_ll
+                        best_test_train_ll = train_ll
+                        best_test_test_ll = test_ll
+                        best_test_numTrialTrain = numTrialTrain
+                        best_test_numTrialTest = numTrialTest
+
+                    # we also want the average among these, technically an average of averages isn't clean
+                    # but this is the way it looks they did it in the paper
+                    print(train_ll)
+                    print(test_ll)
+                    train_ll_sum += train_ll
+                    test_ll_sum += test_ll
+                train_ll_avg = train_ll_sum / len(seeds)
+                test_ll_avg = test_ll_sum / len(seeds)
+                best_train_save_name = (f'best_train_glmtype{glmType}_lag{glmLag}_intercept{intercept}_kfold{i}'
+                                        f'_numstates{num_states}_observationnoise{observation_noise}_diagonalp'
+                                        f'{diagonal_p}_wzero{wzero}.pickle')
+                with open(save_directory / best_train_save_name, 'wb') as f:
+                        pickle.dump([best_train_glmhmm, best_train_fit_ll, best_train_train_ll, best_train_test_ll,
+                                     best_train_numTrialTrain, best_train_numTrialTest, train_ll_avg, test_ll_avg], f)
+                best_test_save_name = (f'best_test_glmtype{glmType}_lag{glmLag}_intercept{intercept}_kfold{i}'
+                                       f'_numstates{num_states}_observationnoise{observation_noise}_diagonalp'
+                                       f'{diagonal_p}_wzero{wzero}.pickle')
+                with open(save_directory / best_test_save_name, 'wb') as f:
+                        pickle.dump([best_test_glmhmm, best_test_fit_ll, best_test_train_ll, best_test_test_ll,
+                                     best_test_numTrialTrain, best_test_numTrialTest, train_ll_avg, test_ll_avg], f)
+
 
 
 if __name__ == "__main__":
