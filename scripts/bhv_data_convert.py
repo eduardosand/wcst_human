@@ -3,8 +3,6 @@ from pathlib import Path
 import os
 import numpy as np
 import pickle
-# Test this code with fitting a new model and see if it works
-# Need to plot the design matrix to make sure I have what I think I have
 
 
 def bhv_convert(subject, session, intercept, save_directory):
@@ -110,6 +108,6 @@ def bhv_convert(subject, session, intercept, save_directory):
     # save pickle file so this code doesn't need to run
     save_name = (f'{subject}_{session}_glm1_lag{lag}_int{intercept}.pickle')
     with open(save_directory / save_name, 'wb') as f:
-        pickle.dump([history_data, choice_data], f)
+        pickle.dump([history_data, choice_data, history_possibilities], f)
     return history_data, choice_data, history_possibilities
 
