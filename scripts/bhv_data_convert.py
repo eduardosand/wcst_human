@@ -33,8 +33,8 @@ def bhv_convert(subject, session, intercept, save_directory):
     features = ['S0', 'T', 'C', 'Q', 'B', 'Y', 'G', 'M', 'L', 'P', 'S2', 'R']
     feature_dict = dict(zip(features, np.linspace(0,12)))
     # then create an array but with keys so we can keep track of which rules are what
-    # keys_img_location_dict = {'left': 4, 'down': 2, 'right': 3, 'up': 1}
-    # locations = ['up', 'down', 'right', 'left', 'intercept']
+    keys_img_location_dict = {'left': 4, 'down': 2, 'right': 3, 'up': 1}
+    locations = ['up', 'down', 'right', 'left']
     # to fit the GLM we need history data that
 
     # old we used to grab the location of the object
@@ -48,11 +48,16 @@ def bhv_convert(subject, session, intercept, save_directory):
     history_possibilities = ['intercept', 'NC-', 'NC+', 'C-', 'C+']
     # One of these for each feature
     history_data = np.zeros((len(beh_data.index.values), len(features), len(history_possibilities)))
-    choice_data = np.zeros((len(beh_data.index.values), len(features), 1), dtype=np.int8)
+    choice_data = np.zeros((len(beh_data.index.values), len(features), 1), dtype=np.int8) # feature level
+    object_choice_data = np.zeros((len(locations), len(beh_data.index.values)), dtype=np.int8)
     for ind, row in enumerate(beh_data.index.values):
         # rule = beh_data.loc[row, 'rule']
         # connect this to what 'card' was correct
         chosen_card = beh_data.loc[row, 'chosen']
+        # object choice?
+        object_choice = [i for i in range(4) if beh_data.loc[row, f'bmp_table_{i+1}'] == chosen_card + ".bmp"][0]
+        object_choice_data[ind, object_choice] = 1
+
         reward = beh_data.loc[row, 'correct']
         chosen_ind = [features.index(s) if s != 'S' else features.index(f"S{chosen_card.index(s)}") for s in chosen_card]
         # print(chosen_ind)
@@ -108,6 +113,6 @@ def bhv_convert(subject, session, intercept, save_directory):
     # save pickle file so this code doesn't need to run
     save_name = (f'{subject}_{session}_glm1_lag{lag}_int{intercept}.pickle')
     with open(save_directory / save_name, 'wb') as f:
-        pickle.dump([history_data, choice_data, history_possibilities], f)
-    return history_data, choice_data, history_possibilities
+        pickle.dump([history_data, choice_data, history_possibilities, object_choice_data], f)
+    return history_data, choice_data, history_possibilities, object_choice_data
 

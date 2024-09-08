@@ -74,7 +74,7 @@ def main():
     save_directory = Path(f"{os.pardir}/data/{subject}/{session}/model")
     for intercept in intercepts:
         for num_states in num_states_poss:
-            history_data, choice_data, history_labels = bhv_convert(subject, session, intercept, save_directory)
+            history_data, choice_data, history_labels, _ = bhv_convert(subject, session, intercept, save_directory)
             Xdata = history_data
             Ydata = choice_data
 
