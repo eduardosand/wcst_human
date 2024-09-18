@@ -37,15 +37,12 @@ def bhv_convert(subject, session, intercept, save_directory):
     # then create an array but with keys so we can keep track of which rules are what
     keys_img_location_dict = {'left': 4, 'down': 2, 'right': 3, 'up': 1}
     locations = ['up', 'down', 'right', 'left']
-    # to fit the GLM we need history data that
-
-    # old we used to grab the location of the object
-
     # now we imagine the following scenario
     # history with one lag can be one of four options
     # NC-, NC+, C-, C+
     # corresponding to 2D vectors r_t-1, c_t-1
     # (0,0), (1,0), (0,1), (1,1)
+    lag = 1
     history_choice_dict = {(0, 0): 'NC-', (1, 0): 'NC+', (0, 1): 'C-', (1, 1): 'C+'}
     history_possibilities = ['intercept', 'NC-', 'NC+', 'C-', 'C+']
     # One of these for each feature
@@ -98,25 +95,6 @@ def bhv_convert(subject, session, intercept, save_directory):
 
             feature_history = history_choice_dict[(reward, chosen)]
             history_data[ind, feature_ind, history_possibilities.index(feature_history)] = 1.
-        # for location in list(keys_img_location_dict.values()):
-        #     # print(location)
-        #     card_one = beh_data.loc[row, f'bmp_table_{location}']
-        #     # loc_ind gives us the features for a given location
-        #     feat_ind = np.zeros((3,), dtype=np.int8)
-        #     if 'S' in card_one:
-        #         # find out if there are two S or one and then what indices
-        #         if card_one.count('S') == 2:
-        #             feat_ind[0] = 0
-        #             feat_ind[1] = 10
-        #         else:
-        #             feat_ind[0] = card_one.index('S')
-        #     card_one = card_one.replace('S', '')
-        #     card_one = card_one.replace('.bmp', '')
-        #     count = 3-len(card_one)
-        #     for s in card_one:
-        #         feat_ind[count] = features.index(s)
-        #         count += 1
-        #     history_data[ind, feat_ind, location-1] = 1
 
     history_data[:, :, 0] = intercept
     # Final step, drop the first trial because there's no history of choice from the last trial
@@ -126,14 +104,8 @@ def bhv_convert(subject, session, intercept, save_directory):
     # and then drop the last trial for X because it won't predict the choice on the next trial (the next trial doesn't exist)
     history_data = history_data[:-1, :, :]
 
-
-
-    # this effectively shifts the data so that history_data[ind,:,:] is always the information from trial ind-1
-    lag = 1
-
     # save pickle file so this code doesn't need to run
     save_name = (f'{subject}_{session}_glm1_lag{lag}_int{intercept}.pickle')
     with open(save_directory / save_name, 'wb') as f:
         pickle.dump([history_data, choice_data, history_possibilities, object_choice_data, locations, stimulus_data], f)
     return history_data, choice_data, history_possibilities, object_choice_data, locations, stimulus_data
-
