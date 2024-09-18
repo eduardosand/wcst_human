@@ -419,11 +419,11 @@ def main():
             allPerfsP = allPerfs
 
     results = {'allPerfs': allPerfs, 'allPerfsP': allPerfsP}
-    with open('analysis/objPredPerfs.pickle', 'wb') as f:
+    with open(save_directory / 'objPredPerfs.pickle', 'wb+') as f:
         pickle.dump([results], f)
 
     results = {'bestTrains': bestTrains, 'bestTests': bestTests}
-    with open('analysis/all_objPredPerf.pickle', 'wb') as f:
+    with open(save_directory / 'all_objPredPerf.pickle', 'wb+') as f:
         pickle.dump([results], f)
 
 if __name__ == "__main__":
