@@ -56,7 +56,7 @@ def bhv_convert(subject, session, intercept, save_directory):
         chosen_card = beh_data.loc[row, 'chosen']
         # object choice?
         object_choice = [i for i in range(4) if beh_data.loc[row, f'bmp_table_{i+1}'] == chosen_card + ".bmp"][0]
-        object_choice_data[ind, object_choice] = 1
+        object_choice_data[object_choice, ind] = 1
 
         reward = beh_data.loc[row, 'correct']
         chosen_ind = [features.index(s) if s != 'S' else features.index(f"S{chosen_card.index(s)}") for s in chosen_card]
