@@ -8,9 +8,6 @@ from pathlib import Path
 import pandas as pd
 from behavior_analysis import get_wcst_data
 
-# Pretty much everything here hasn't been tested yet, be advised
-
-
 def ph_bhv_alignment(ph_signal, trials, rt, sample_rate, cutoff_fraction=2, task_time=None, tau=None):
     '''
     Script processes photodiode signal. Assumes 1 event, and requires task time to limit analysis to.
@@ -178,7 +175,7 @@ def get_ph_timestamps(subject, session, task):
     ph_signal, sample_rate, _, timestamps = read_task_ncs(data_directory, ph_filename, task=task,
                                                           events_file=event_file)
     # the events file should cut the ph_signal already
-
+    print(timestamps)
     # Okay now with our photodiode signal in tow, we'll get a histogram
     plt.hist(ph_signal)
     plt.title(f'Photodiode signal distribution for {subject} {session} during {task}')
@@ -188,7 +185,6 @@ def get_ph_timestamps(subject, session, task):
     bhv_files_list = os.listdir(bhv_directory)
     bhv_files = [file_path for file_path in bhv_files_list if file_path.endswith('.csv') and
                  file_path.startswith(f'{subject}')]
-
     # bhv_file_path = data_directory.parents[0] / "behavior" / f"sub-{subject}-{session}-beh.csv"
     bhv_file_path = bhv_directory / bhv_files[0]
     # Now to get ground truth data for wisconsin card sorting
@@ -209,6 +205,9 @@ def get_ph_timestamps(subject, session, task):
     # annotation provided by previous script,
     # but when we look at neural timestamps, they are in machine time. We can subtract from machine
     # time at start of that recording but we also need to take care of additional offset due to the annotation itself.
+    # ph_onset_trials is in samples, using the start of task as the reference for 0
+    # our first measure is to take this and add the number of samples since the start of the recording given our sampling rate
+    # the other measure converts the measurement into seconds, but then rereferences to start of the recording
     beh_time_data = np.array([ph_onset_trials+timestamps[0]*sample_rate,
                               ph_offset_button_press+timestamps[0]*sample_rate,
                               padded_rts, ph_onset_trials/sample_rate+timestamps[0],
@@ -220,8 +219,10 @@ def get_ph_timestamps(subject, session, task):
 
 
 def main():
+    # test_subject = 'IR95'
+    # test_session = 'sess-1'
     test_subject = 'IR95'
-    test_session = 'sess-1'
+    test_session = 'sess-3'
     task = 'wcst'
     get_ph_timestamps(test_subject, test_session, task)
 
