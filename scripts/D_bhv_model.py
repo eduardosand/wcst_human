@@ -119,8 +119,8 @@ def main():
                 Xtestdata = list(Xtestdata)
                 Ytraindata = list(Ytraindata)
                 Ytestdata = list(Ytestdata)
-                train_ll_benchmark = 1000
-                test_ll_benchmark = 1000
+                train_ll_benchmark = -100000000
+                test_ll_benchmark = -1000000000
                 train_ll_sum = 0
                 test_ll_sum = 0
                 for seed in seeds:
@@ -141,7 +141,7 @@ def main():
                     test_ll = glmhmm.log_likelihood(Ytestdata, inputs=Xtestdata) / numTrialTest
 
                     # we'd like to save intermittently the best model over all the initializations
-                    if train_ll < train_ll_benchmark:
+                    if train_ll > train_ll_benchmark:
                         best_train_glmhmm = glmhmm
                         best_train_fit_ll = fit_ll
                         train_ll_benchmark = train_ll
@@ -149,7 +149,7 @@ def main():
                         best_train_test_ll = test_ll
                         best_train_numTrialTrain = numTrialTrain
                         best_train_numTrialTest = numTrialTest
-                    if test_ll < test_ll_benchmark:
+                    if test_ll > test_ll_benchmark:
                         best_test_glmhmm = glmhmm
                         best_test_fit_ll = fit_ll
                         test_ll_benchmark = test_ll
