@@ -22,8 +22,7 @@ def initializeObservation(glmhmm,glmhmmOne,sigma, rng_generator):
     for k in range(glmhmm.K):
         obs_shape = glmhmmOne.observations.params[0].shape
         glmhmm.observations.params[k] = glmhmmOne.observations.params[0] * (1 + sigma *
-                                                                            rng_generator.random(obs_shape[0],
-                                                                                                 obs_shape[1]))
+                                                                            rng_generator.random(obs_shape))
 
     return glmhmm
 
@@ -39,7 +38,7 @@ def initializeTransition(glmhmm,glmhmmOne,diagonalP,wZero, rng_generator):
     """
 
     # initialize log_Ps variable
-    Ps = diagonalP * np.eye(glmhmm.K) + .05 * rng_generator.random(glmhmm.K, glmhmm.K)
+    Ps = diagonalP * np.eye(glmhmm.K) + .05 * rng_generator.random((glmhmm.K, glmhmm.K))
     Ps /= Ps.sum(axis=1, keepdims=True)
     glmhmm.transitions.log_Ps = np.log(Ps)
 
