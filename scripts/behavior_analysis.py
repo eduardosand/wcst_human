@@ -97,10 +97,16 @@ def process_wcst_behavior(file_name, running_avg=5):
             continue
         resp = keys_img_location_dict[beh_data.loc[row, 'key press']]
         if not pd.isna(beh_data.loc[row, 'rule']):
-            rule = beh_data.loc[row, 'rule'].strip()
-            corr_card = [i.replace('.bmp', '') for i in
-                         list(beh_data.loc[row, ['bmp_table_1', 'bmp_table_2', 'bmp_table_3', 'bmp_table_4']])
-                         if (rule in i) and (i[beh_data.loc[row, 'rule'].index(rule)] == rule)]
+            rule = list(set(beh_data.loc[row, 'rule'].strip()))[0]
+            # account for redesign of experiment
+            if beh_data.loc[row, 'expName'] == 'Wisconsin Card Sorting Eduardo':
+                corr_card = [i.replace('.bmp', '') for i in
+                             list(beh_data.loc[row, ['bmp_table_1', 'bmp_table_2', 'bmp_table_3', 'bmp_table_4']])
+                             if (rule in i)]
+            else:
+                corr_card = [i.replace('.bmp', '') for i in
+                             list(beh_data.loc[row, ['bmp_table_1', 'bmp_table_2', 'bmp_table_3', 'bmp_table_4']])
+                             if (rule in i) and (i[beh_data.loc[row, 'rule'].index(rule)] == rule)]
             if beh_data.loc[row, 'rule'].strip() == 'S':
                 rule_ind = beh_data.loc[row, 'rule'].index('S')
                 if rule_ind == 2:

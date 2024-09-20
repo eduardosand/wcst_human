@@ -106,7 +106,9 @@ def enumerate_cond_subject(data_dir, results_dir, subject):
         curr_session = int(session[-1])
         print(curr_session)
         # this is the one magic string in this code
-        file_path = data_dir / f"sess-{curr_session}" / "behavior" / f'sub-{subject}-sess-{curr_session}-beh.csv'
+        files = os.listdir(data_dir / session / "behavior")
+        file_name = [file for file in files if file.endswith('.csv')]
+        file_path = data_dir / f"sess-{curr_session}" / "behavior" / file_name[0]
 
         # Linux
         # data_directory = f"/home/eduardo/WCST_Human/{subject}"
@@ -146,12 +148,15 @@ def main():
 
     results_dir = Path(f"{os.pardir}/results")
 
-    subjects = ['IR87', 'IR86', 'DA9', 'IR84', 'IR85', 'IR94', 'IR95', 'IR99']
+    # subjects = ['IR87', 'IR86', 'DA9', 'IR84', 'IR85', 'IR94', 'IR95', 'IR99']
+    subjects = ['BERK01']
     for subject in subjects:
         print(os.getcwd())
         print(subject)
+        # data_dir = Path(f"{os.getcwd()}/wcst_human/data/{subject}/")
+        data_dir = Path(f"{os.pardir}/data/{subject}/")
         # This works on Windows, hasn't been tested on Linux/Mac
-        data_dir = Path(f"{os.pardir}/data/{subject}")
+        # data_dir = Path(f"{os.pardir}/data/{subject}")
         enumerate_cond_subject(data_dir, results_dir, subject)
 
     print('hooray')
