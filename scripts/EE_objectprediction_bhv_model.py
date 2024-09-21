@@ -11,49 +11,17 @@ import torch.nn.utils.prune as prune
 from pathlib import Path
 import os
 from bhv_data_convert import bhv_convert
+"""
+Some of this code adapted from 
+A Comparison of Rapid Rule-Learning Strategies in Humans and Monkeys
+Vishwa Goudar, Jeong-Woo Kim, Yue Liu, Adam J. O. Dede, Michael J. Jutras, Ivan Skelin, Michael Ruvalcaba, William Chang, Bhargavi Ram, Adrienne L. Fairhall, Jack J. Lin, Robert T. Knight, Elizabeth A. Buffalo, Xiao-Jing Wang
+Journal of Neuroscience 10 July 2024, 44 (28) e0231232024; DOI: 10.1523/JNEUROSCI.0231-23.2024
+"""
+
+
 
 
 mpl.rcParams['agg.path.chunksize'] = 10000
-
-
-def getDataToSuperBlocks(historyData, choiceData, intercept, mode):
-    """
-    This is gonna transform the behavioral data into a format suitable for analysis and extension models.
-    For Vishwa's paper, he uses SuperBlocks, but here I have one block, so a mode parameter is added to account for
-    this discrepancy.
-    :param historyData: (ndarray) n_trials x n_features x n_labels(labels are intercept and which history(NC-,C+, etc),
-    pertains the previous trial
-    :param choiceData: (ndarray) n_trials x n_features x 1: whether each feature was part of the chosen object,
-    for each trial
-    :param intercept: if intercept is 1 or 0
-    :param mode:
-    :return:
-    """
-    if mode == 'Vishwa':
-        numBlocks = 1
-    else:
-        choiceData = np.expand_dims(choiceData, axis=0)
-        historyData = np.expand_dims(historyData, axis=0)
-        # numBlocks = len(historyData)
-
-
-    historySuperBlocks = []
-    choiceSuperBlocks = []
-
-    # Loop through super blocks
-    # (i.e. series of trials without breaks - may span multiple rules)
-    for blk in range(numBlocks):
-        T = historyData[blk][0].shape[0]
-        H = np.zeros([12, T])
-        C = np.zeros([12, T])
-        # Loop through features and transform to arrays
-        for f in range(12):
-            C[f, :] = np.squeeze(choiceData[blk][f].astype('int'))
-            H[f, :] = np.argmax(historyData[blk][f][:, intercept:], axis=1).astype('int')
-        historySuperBlocks.append(H)
-        choiceSuperBlocks.append(C)
-
-    return historySuperBlocks, choiceSuperBlocks
 
 
 def get_choice_likelihood(glmhmm = None,

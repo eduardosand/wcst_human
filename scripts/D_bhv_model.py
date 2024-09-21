@@ -6,8 +6,12 @@ import ssm
 from bhv_data_convert import bhv_convert
 import pickle
 from sklearn.model_selection import KFold
-# This script is modified from Vishwa Gaudar's git repo for paper.
-# Tested may 2024
+"""
+Some of this code adapted from 
+A Comparison of Rapid Rule-Learning Strategies in Humans and Monkeys
+Vishwa Goudar, Jeong-Woo Kim, Yue Liu, Adam J. O. Dede, Michael J. Jutras, Ivan Skelin, Michael Ruvalcaba, William Chang, Bhargavi Ram, Adrienne L. Fairhall, Jack J. Lin, Robert T. Knight, Elizabeth A. Buffalo, Xiao-Jing Wang
+Journal of Neuroscience 10 July 2024, 44 (28) e0231232024; DOI: 10.1523/JNEUROSCI.0231-23.2024
+"""
 
 
 def initializeObservation(glmhmm,glmhmmOne,sigma, rng_generator):
@@ -55,45 +59,33 @@ def initializeTransition(glmhmm,glmhmmOne,diagonalP,wZero, rng_generator):
 
 def main():
     # Goals of the analysis:
-    # Try out two intercepts, try out multiple states
+    # Adjudicate between fit HMMs with different intercepts and number of states
     intercepts = [0, 1]
     num_states_poss = [1, 2, 3, 4]
     seeds = [1234567890, 2345678901, 3456789012, 4567890123, 5678901234, 6789012345, 7890123456, 8901234567,
              9012345678, 12345678900]
     subject = 'IR95'
     session = 'sess-3'
-    # intercept = 1
+    save_directory = Path(f"{os.pardir}/data/{subject}/{session}/model")
+
     glmType = 1  # Bernoulli
-    glmLag = 1
-    # num_states = 2
+    glmLag = 1 # Is it Markov or more
     observation_noise = 0
     diagonal_p = 0.9
     wzero = 1
-    block_method = 0
-    save_directory = Path(f"{os.pardir}/data/{subject}/{session}/model")
+
     for intercept in intercepts:
 
-        history_data, choice_data, history_labels, object_choice_data, locations, stimulus_data = bhv_convert(subject, session, intercept, save_directory)
+        # convert raw behavior data into array encoded info
+        # history vector is reward and choice encoded as one hot vector with an intercept
+        # history labels make it clear what option pertains to the label
+        # choice is a single number
+        history_data, choice_data, history_labels, _, _, _ = bhv_convert(subject, session, intercept, save_directory)
 
         Xdata = history_data
         Ydata = choice_data
+
         for num_states in num_states_poss:
-
-            species = 'human'
-            subj = 'b01'
-            dataDirectory = Path(f'{os.pardir}/{os.pardir}/WCST_behavioral_model_and_analysis/rawData/inputs/{species}/{subj}')
-            # three of the parameters are solely related to the features of the input data
-            # which are presaved
-            dataName = Path(f'glm{glmType}_lag{glmLag}_int{intercept}.pickle')
-
-            # Load training data
-            # note that for a human participant, this is a 5 len list (5 blocks) that each has a 12 len list (12 features)
-            # that is itself a 299*5 array (the history data for the first 299 trials that predict trials 2-300, where the
-            # array itself is the 4 possible locations followed by an intercept
-            # ydata is similar except that it correponds to chosen feature
-            # with open(dataDirectory / dataName, 'rb') as f:
-            #     [XData_sample, YData_sample] = pickle.load(f)
-
             # then map the rule to these keys to replace some things with 1
             rule_dict = {'S': 'Problem', 'T': 'Shape', 'C': 'Shape', 'Q': 'Shape', 'B': 'Color', 'Y': 'Color', 'G': 'Color',
                                  'M': 'Color', 'L': 'Texture', 'P': 'Texture', 'W': 'Texture', 'R': 'Texture'}
