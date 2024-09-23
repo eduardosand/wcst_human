@@ -190,7 +190,7 @@ def get_ph_timestamps(subject, session, task):
     # Now to get ground truth data for wisconsin card sorting
     trials, rt, _ = get_wcst_data(bhv_file_path)
 
-
+    print(rt)
     # Use both behavioral data and photodiode data to do alignment
     # remember that task_start_segment_time is the baseline for the array
     event_lengths_pruned, ph_onset_trials, ph_offset_button_press, padded_rts = ph_bhv_alignment(ph_signal, trials,
@@ -221,8 +221,8 @@ def get_ph_timestamps(subject, session, task):
 def main():
     # test_subject = 'IR95'
     # test_session = 'sess-1'
-    test_subject = 'IR95'
-    test_session = 'sess-3'
+    test_subject = 'IR94'
+    test_session = 'sess-1'
     task = 'wcst'
     get_ph_timestamps(test_subject, test_session, task)
 

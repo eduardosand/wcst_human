@@ -100,6 +100,8 @@ def enumerate_cond_subject(data_dir, results_dir, subject):
     :param subject:  String. Subject identifier
     :return:
     """
+    print('hello')
+    print(data_dir)
     global_dict = {}
     sessions = os.listdir(data_dir)
     for session in sessions:
@@ -147,9 +149,10 @@ def enumerate_cond_subject(data_dir, results_dir, subject):
 def main():
 
     results_dir = Path(f"{os.pardir}/results")
-
+    print(results_dir)
+    print('hi again')
     # subjects = ['IR87', 'IR86', 'DA9', 'IR84', 'IR85', 'IR94', 'IR95', 'IR99']
-    subjects = ['BERK01']
+    subjects = ['BERK01','BERK02']
     for subject in subjects:
         print(os.getcwd())
         print(subject)
@@ -163,3 +166,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    

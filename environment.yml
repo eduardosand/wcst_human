@@ -3,13 +3,12 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python=3.11.3
+  - python=3.11
   - matplotlib
   - scipy
   - numpy
   - pandas
   - scikit-learn
-  - numba
   - openpyxl
   - statsmodels
   - pip
