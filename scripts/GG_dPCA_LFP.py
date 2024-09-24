@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from pathlib import Path
-from BB_processlfp import plot_signal_avg
+from BB_processlfp import plot_signal_avg, lfp_prep, organize_data
 from G_dPCA import dpca_plot_analysis
 
 def multitaper(sbj, session, task, epochs, foi='HFA'):
@@ -69,14 +69,24 @@ def main():
     standardized_data = False
     # regularization_setting = 'auto'
     regularization_setting = None
-    epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subject, test_session, task,
-                                                                           event_lock=event_lock, feature=feature)
+    electrode_selection = 'all'
+    baseline = (-0.5, 0)
+    car_setting = False
+    epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subject, test_session,
+                                                                       task, event_lock=event_lock,
+                                                                       feature=feature,
+                                                                       baseline=baseline, smooth=True,
+                                                                       electrode_selection=electrode_selection,
+                                                                       car=car_setting)
+    # epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subject, test_session, task,
+    #                                                                        event_lock=event_lock, feature=feature)
     organized_data_mean, organized_data, feedback_dict = organize_data(epochs_dataset, feature_values,
                                                                        standardized_data=standardized_data,
                                                                        method='dPCA')
 
     feature_dict = feedback_dict
 
+    feature = 'Feedback'
     # suptitle=f'All microwires, bandpassed at {bp}, {lock}-locked'
     plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
                         extra_string=f'Normalization = {standardized_data} {event_lock}-lock',
@@ -84,7 +94,7 @@ def main():
     dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, test_subject,
                                      test_session, event_lock, standardized_data,
                                      regularization_setting=regularization_setting,
-                                     feature_names=[feature], data_modality='Microwire broadband')
+                                     feature_names=[feature], data_modality=f'{electrode_selection} broadband')
 
     standardized_data = True
     organized_data_mean, organized_data, feedback_dict = organize_data(epochs_dataset, feature_values,
@@ -94,11 +104,12 @@ def main():
 
     # suptitle=f'All microwires, bandpassed at {bp}, {lock}-locked'
     plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
-                        extra_string=f'Normalization = {standardized_data} {event_lock}-lock')
+                        extra_string=f'Normalization = {standardized_data} {event_lock}-lock',
+                    signal_names=microwire_names)
     dpca_2, Z_2 = dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, test_subject,
                                      test_session, event_lock, standardized_data,
                                      regularization_setting=regularization_setting,
-                                     feature_names=[feature], data_modality='Microwire broadband')
+                                     feature_names=[feature], data_modality=f'{electrode_selection} broadband')
 
 
 if __name__ == "__main__":
