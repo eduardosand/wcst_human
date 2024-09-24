@@ -8,7 +8,7 @@ import os
 # and mark down when the wcst experiment was, with the idea that when the photodiode is still, the data should largely
 # have similar statistics, and make it easier to do photodiode processing (trial detection).
 
-subject = 'IR98'
+subject = 'IR94'
 session = 'sess-1'
 # subject = 'IR95'
 # session = 'sess-1'

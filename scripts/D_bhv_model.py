@@ -158,18 +158,21 @@ def main():
                     test_ll_sum += test_ll
                 train_ll_avg = train_ll_sum / len(seeds)
                 test_ll_avg = test_ll_sum / len(seeds)
+                num_input = len(features)*len(Ydata)
                 best_train_save_name = (f'best_train_glmtype{glmType}_lag{glmLag}_intercept{intercept}_kfold{i}'
                                         f'_numstates{num_states}_observationnoise{observation_noise}_diagonalp'
-                                        f'{diagonal_p}_wzero{wzero}.pickle')
+                                        f'{diagonal_p}_wzero{wzero}.pkl')
                 with open(save_directory / best_train_save_name, 'wb') as f:
                         pickle.dump([best_train_glmhmm, best_train_fit_ll, best_train_train_ll, best_train_test_ll,
-                                     best_train_numTrialTrain, best_train_numTrialTest, train_ll_avg, test_ll_avg], f)
+                                     best_train_numTrialTrain, best_train_numTrialTest, train_ll_avg, test_ll_avg,
+                                     num_input], f)
                 best_test_save_name = (f'best_test_glmtype{glmType}_lag{glmLag}_intercept{intercept}_kfold{i}'
                                        f'_numstates{num_states}_observationnoise{observation_noise}_diagonalp'
-                                       f'{diagonal_p}_wzero{wzero}.pickle')
+                                       f'{diagonal_p}_wzero{wzero}.pkl')
                 with open(save_directory / best_test_save_name, 'wb') as f:
                         pickle.dump([best_test_glmhmm, best_test_fit_ll, best_test_train_ll, best_test_test_ll,
-                                     best_test_numTrialTrain, best_test_numTrialTest, train_ll_avg, test_ll_avg], f)
+                                     best_test_numTrialTrain, best_test_numTrialTest, train_ll_avg, test_ll_avg,
+                                     num_input], f)
 
 
 

@@ -43,8 +43,3 @@ print(global_start)
 trial_onsets = list(timestamps['img_onset'])
 trial_onset_times = (trial_onsets-global_start)*10**-6
 trial_offset_times = (list(timestamps['img_offset'])-global_start)*10**-6
-import numpy as np
-event_signal = np.zeros(ph_signal.shape)
-for i in range(len(trial_onset_times)):
-    event_signal[int(trial_onset_times[i] * sampling_rate):int(trial_offset_times[i] * sampling_rate)] = 1.
-print('hip')
