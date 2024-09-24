@@ -1,9 +1,7 @@
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import cross_val_score, StratifiedKFold
 import numpy as np
-from BB_processlfp import lfp_prep
-from GG_dPCA_LFP import organize_data
-from G_dPCA import plot_signal_avg
+from BB_processlfp import lfp_prep, organize_data, plot_signal_avg
 import scipy
 from scipy import stats
 # This code exists to run an LDA sweeping timepoint by timepoint
@@ -31,7 +29,7 @@ epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subj
                                                                        car=car_setting)
 
 organized_data_mean, organized_data, feedback_dict = organize_data(epochs_dataset, feature_values,
-                                                                   standardized_data=standardized_data)
+                                                                   standardized_data=standardized_data, method='LDA')
 
 # get rid of the baseline period, NOTE this assumes that we're using feedback locked time periods, and ITI, which will
 # change for other analyses
@@ -52,7 +50,8 @@ mean_accuracies = []
 sem_accuracies = []
 p_values = []
 for i in range(n_timepoints):
-    X = epochs_dataset.get_data(copy=False)[:, :, i]
+    X = organized_data[:, :, i]
+    # X = epochs_dataset.get_data(copy=False)[:, :, i]
     y = list(feature_values)
     # Assuming X and y are your features and labels
     lda = LinearDiscriminantAnalysis()

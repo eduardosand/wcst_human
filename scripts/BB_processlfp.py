@@ -763,6 +763,38 @@ def morlet(sbj, session, task, epochs, standardized=True, baseline=(2,2.5), tria
     tfr_power_avg.save(file_path, overwrite=True)
     return tfr_power_avg
 
+def log_normalize(tfr_power, trial_time, baseline=(2, 2.5)):
+    """
+    This function takes time frequency decomposition of epoched data and first log normalizes according to
+        a baseline of the first second of data. Then the data is averaged across frequency bands to obtain an
+        estimate of high frequency broadband (HF BB) power. NOTE: This script was written with compute limitations
+        in mind (memory). As such, it might not be as 'pythonic' as it could be.
+
+    :param tfr_power: (Power) : Time Frequency Decomposition of epoched data, without averaging.
+                                Data in this class will be an array of following dimensions
+                                (n_epochs, n_electrodes, n_freq, n_timepoints)
+    :param trial_time: (array) : timestamps for each timepoint in tfr in seconds (event_locked)
+    :param baseline: (tuple) : tells the period to use as baseline in seconds with reference to the event, used with
+    trial time
+    :return: HFA_power_normalized (array): Array containing HF BB power, trial and electrode wise.
+                                           Array is of the following dimensions
+                                           (n_epochs, n_electrodes, n_timepoints)
+    """
+
+    (n_trials, n_electrodes, n_freq, n_timepoints) = tfr_power.data.shape
+    HFA_power_normalized = np.zeros((n_trials, n_electrodes, n_timepoints))
+    baseline_start = int(np.argmax(trial_time >= baseline[0]))
+    baseline_end = int(np.argmax(trial_time >= baseline[1]))
+    for i in range(n_freq):
+        mean_baseline = np.mean(np.log(tfr_power.data[:, :, i, baseline_start:baseline_end]), axis=(0, 2),
+                                keepdims=True)
+        std = np.std(np.log(tfr_power.data[:, :, i, baseline_start:baseline_end]), axis=(0, 2), keepdims=True)
+        power = (np.log(tfr_power.data[:, :, i, :])-mean_baseline) / std
+        HFA_power_normalized += power
+    HFA_power_normalized /= n_freq
+    return HFA_power_normalized
+
+
 
 def plot_signal_avg(organized_data_mean, subject, session, trial_time,
                     labels=None, extra_string='', signal_names=None, pvalues=None):
