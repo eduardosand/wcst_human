@@ -34,13 +34,13 @@
                 "LFP_uploaded": "True",
                 "SU_timestamps_file_generated": "True",
                 "photodiode_timestamps_acquired": "True",
-                "dropped_electrodes_reference": [
+                "dropped_micros_reference": [
                         "mLAC3",
                         "mLAM8",
                         "mLHH1",
                         "mLTH1"
                 ],
-                "dropped_electrodes_noisy": [
+                "dropped_micros_noisy": [
                         "mLOF1",
                         "mLOF2",
                         "mLOF3",
@@ -53,7 +53,7 @@
                         "mLTH7",
                         "mLTH8"
                 ],
-                "dropped_electrodes_microperiodic_epileptic_discharge": [
+                "dropped_microperiodic_epileptic_discharge": [
                         "mLTH7",
                         "mLAM4",
                         "mLAM5",
@@ -92,6 +92,9 @@
                         "LTH8",
                         "LOF8",
                         "LAC8"
+                ],
+                "dropped_micros_clipping": [
+
                 ]
         },
         "sess-2": {
@@ -102,7 +105,65 @@
                 "LFP_processed": "True",
                 "LFP_uploaded": "True",
                 "photodiode_timestamps_acquired": "False",
-                "SU_timestamps_file_generated": "True"
+                "SU_timestamps_file_generated": "True",
+                "dropped_macros_no_reference": [
+                        "LAM8",
+                        "LHH8",
+                        "LTH8",
+                        "LOF8",
+                        "LAC8"
+                ],"dropped_electrodes_wm":
+                [
+                        "LAM3",
+                        "LHH2",
+                        "LHH3",
+                        "LTH2",
+                        "LTH3",
+                        "LAC2",
+                        "LAC3",
+                        "LAC4",
+                        "LAC5"
+                ],
+                "dropped_electrodes_oob": [
+                        "LOF7",
+                        "LOF8",
+                        "LTH7",
+                        "LTH8"
+
+                ],"dropped_macros_noisy": [
+                        "LOF1",
+                        "LOF2",
+                        "LOF3",
+                        "LOF4",
+                        "LAC6",
+                        "LAC7"
+                ],
+                "dropped_micros_noisy": [
+                        "mLOF1",
+                        "mLOF2",
+                        "mLOF3",
+                        "mLOF4",
+                        "mLOF5",
+                        "mLOF6",
+                        "mLOF7",
+                        "mLOF8",
+                        "mLTH3",
+                        "mLTH7"
+                ],
+                "dropped_micros_clipping": [
+                        "mLTH4"
+                ],
+                "dropped_microperiodic_epileptic_discharge": [
+                        "mLTH4",
+                        "mLTH6",
+                        "mLAM4",
+                        "mLAM5",
+                        "mLAC1"
+                ],
+                "dropped_micros_reference": [
+                        "mLTH1",
+                        "mLHH1"
+                ]
         },
         "sess-1": {
                 "photodiode_quality": "True",
