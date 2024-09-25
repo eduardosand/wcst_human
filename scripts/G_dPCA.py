@@ -31,7 +31,7 @@ def gaussian_smooth(spike_trains_sorted, sigma, step):
 
 
 def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptitle, normalization,
-                         labels=[], feature_names=[]):
+                         labels=[], feature_names=[], significance_masks=None):
     """
     Plotting the first major components of the dpca result
     :param dpca:
@@ -44,6 +44,7 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
     :param normalization:
     :param labels:
     :param feature_names:
+    :param significance_masks: indicates whether the non time components are statistically significant
     :return:
     """
     # time_ticks, time_tick_labels = get_ticks(feedback_locked, fs)
@@ -71,6 +72,7 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
                 plt.plot(trial_time, Z['t'][0, f, r], label=inv_feature_one_dict[f]+inv_feature_one_dict[r])
     else:
         if len(labels) == 0:
+            n_cond = len(features)
             labels = np.arange(n_cond)
         else:
             print(labels)
@@ -108,7 +110,12 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
     else:
         for s in range(len(features)):
             plt.plot(trial_time, Z['s'][0, s], label=labels[s], color=color_dict[s])
-        plt.axvline(0, linestyle='--', c='black')
+        # Coordinates for the annotation
+        if significance_masks is not None and significance_masks['s'][0]:
+            significance = '*'
+            y_max = np.max(Z['s'][0,0:len(features)])
+            plt.text(np.mean(trial_time), y_max + 0.1, significance, ha='center', fontsize=12)
+            plt.axvline(0, linestyle='--', c='black')
         if len(labels) == 0:
             plt.title(f'1st non-time component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
         else:
@@ -138,6 +145,14 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
             plt.plot(trial_time, Z['st'][0, s], label=labels[s], color=color_dict[s])
         plt.axvline(0, linestyle='--', c='black')
         plt.title(f'1st mixed component \n explained variance: {dpca.explained_variance_ratio_["st"][0]:.2%}')
+
+
+        # Coordinates for the annotation
+        if significance_masks is not None and significance_masks['st'][0]:
+            significance = '*'
+            y_max = np.max(Z['st'][0,0:len(features)])
+            plt.text(np.mean(trial_time), y_max + 0.1, significance, ha='center', fontsize=12)
+            plt.axvline(0, linestyle='--', c='black')
     plt.legend()
     # plt.xticks(time_ticks, time_tick_labels)
     plt.xlabel('Time (s)')
@@ -363,15 +378,18 @@ def dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_
     dpca.protect = ['t']
     Z = dpca.fit_transform(organized_data_mean, organized_data)
 
+    significance_masks = dpca.significance_analysis(organized_data_mean, organized_data, n_shuffles=10, n_splits=10,
+                                                    n_consecutive=10)
     pca_comparison(dpca, organized_data_mean, type='trial average')
     new_organized_data = np.swapaxes(organized_data, 0, 1)
     new_organized_data_frame = pd.DataFrame(new_organized_data.reshape(new_organized_data.shape[0], -1))
     new_organized_data_frame.dropna(inplace=True, axis='columns')
     trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
     pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
-    suptitle = f'All {data_modality} {event_lock}-locked'
+    suptitle = f'{data_modality} {event_lock}-locked'
+
     plot_dPCA_components(dpca, Z, trial_time, feature_dict, subject, session, suptitle, normalization,
-                         labels=feature_dict, feature_names=feature_names)
+                         labels=feature_dict, feature_names=feature_names, significance_masks=significance_masks)
     return dpca, Z
 
 
