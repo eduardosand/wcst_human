@@ -162,7 +162,7 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
         plot_description = 'Data was centered but not zscored'
     plt.suptitle(f' Subject {subject} - Session {session} \n {suptitle} \n {plot_description}')
     plt.tight_layout()
-    results_filename = Path(f'{os.pardir}/results/{subject}_{session}_{suptitle}_dPCA.eps')
+    results_filename = Path(f'{os.pardir}/results/{subject}_{session}_{suptitle}_dPCA.svg')
     plt.savefig(results_filename)
     plt.show()
 

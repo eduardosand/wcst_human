@@ -69,8 +69,9 @@ def main():
     standardized_data = False
     # regularization_setting = 'auto'
     regularization_setting = None
-    electrode_selection = 'all'
-    baseline = (-0.5, 0)
+    electrode_selection = 'microwire'
+    baseline = (2,2.5)
+    # baseline = (-0.5, 0)
     car_setting = False
     epochs_dataset, trial_time, microwire_names, feature_values = lfp_prep(test_subject, test_session,
                                                                        task, event_lock=event_lock,
@@ -88,9 +89,9 @@ def main():
 
     feature = 'Feedback'
     # suptitle=f'All microwires, bandpassed at {bp}, {lock}-locked'
-    plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
-                        extra_string=f'Normalization = {standardized_data} {event_lock}-lock',
-                    signal_names=microwire_names)
+    # plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
+    #                     extra_string=f'Normalization = {standardized_data} {event_lock}-lock',
+    #                 signal_names=microwire_names)
     dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, test_subject,
                                      test_session, event_lock, standardized_data,
                                      regularization_setting=regularization_setting,
@@ -103,9 +104,10 @@ def main():
     feature_dict = feedback_dict
 
     # suptitle=f'All microwires, bandpassed at {bp}, {lock}-locked'
-    plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
-                        extra_string=f'Normalization = {standardized_data} {event_lock}-lock',
-                    signal_names=microwire_names)
+    # plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, labels=feedback_dict,
+    #                     extra_string=f'Normalization = {standardized_data} {event_lock}-lock',
+    #                 signal_names=microwire_names)
+
     dpca_2, Z_2 = dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, test_subject,
                                      test_session, event_lock, standardized_data,
                                      regularization_setting=regularization_setting,
