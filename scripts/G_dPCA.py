@@ -162,6 +162,8 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
         plot_description = 'Data was centered but not zscored'
     plt.suptitle(f' Subject {subject} - Session {session} \n {suptitle} \n {plot_description}')
     plt.tight_layout()
+    results_filename = Path(f'{os.pardir}/results/{subject}_{session}_{suptitle}_dPCA.eps')
+    plt.savefig(results_filename)
     plt.show()
 
 
@@ -378,8 +380,9 @@ def dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_
     dpca.protect = ['t']
     Z = dpca.fit_transform(organized_data_mean, organized_data)
 
-    significance_masks = dpca.significance_analysis(organized_data_mean, organized_data, n_shuffles=10, n_splits=10,
-                                                    n_consecutive=10)
+    # significance_masks = dpca.significance_analysis(organized_data_mean, organized_data, n_shuffles=10, n_splits=10,
+    #                                                 n_consecutive=10)
+    significance_masks=None
     pca_comparison(dpca, organized_data_mean, type='trial average')
     new_organized_data = np.swapaxes(organized_data, 0, 1)
     new_organized_data_frame = pd.DataFrame(new_organized_data.reshape(new_organized_data.shape[0], -1))
