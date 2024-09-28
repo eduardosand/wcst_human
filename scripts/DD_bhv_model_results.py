@@ -4,7 +4,7 @@ import os
 import pickle
 import numpy as np
 
-intercepts = [1]
+intercepts = [0,1]
 num_states_poss = [1, 2, 3, 4]
 seeds = [1234567890, 2345678901, 3456789012, 4567890123, 5678901234, 6789012345, 7890123456, 8901234567,
              9012345678, 12345678900]
@@ -30,18 +30,18 @@ for intercept in intercepts:
             #     _, best_train_fit_ll, best_train_train_ll, best_train_test_ll, best_train_numTrialTrain, best_train_numTrialTest, train_ll_avg, test_ll_avg = pickle.load(f)
             best_test_save_name = (f'best_test_glmtype{glmType}_lag{glmLag}_intercept{intercept}_kfold{i}'
                                    f'_numstates{num_states}_observationnoise{observation_noise}_diagonalp'
-                                   f'{diagonal_p}_wzero{wzero}').replace('.','p')
-            best_test_save_name = best_test_save_name + '.pickle'
+                                   f'{diagonal_p}_wzero{wzero}')
+            best_test_save_name = best_test_save_name + '.pkl'
             with open(save_directory / best_test_save_name, 'rb') as f:
                 print('yay')
-                [_, best_test_fit_ll, best_test_train_ll, best_test_test_ll, best_test_numTrialTrain, best_test_numTrialTest, train_ll_avg, test_ll_avg] = pickle.load(f)
+                [_, best_test_fit_ll, best_test_train_ll, best_test_test_ll, best_test_numTrialTrain, best_test_numTrialTest, train_ll_avg, test_ll_avg, _] = pickle.load(f)
                 train_ll_avgs.append(train_ll_avg)
                 test_ll_avgs.append(test_ll_avg)
 
         # Average across folds
         # avg_train_ll = np.mean(train_ll_avgs)
         # avg_test_ll = np.mean(test_ll_avgs)
-                num_parameters = 5*num_states+5*num_states**2 + (1+num_states+num_states**2)
+                num_parameters = 5*num_states+5*num_states**2 + (1+num_states+num_states**2)*intercept
                 # Append the data for plotting
                 data.append({
                     'intercept': intercept,
@@ -68,12 +68,14 @@ import matplotlib.pyplot as plt
 df = pd.DataFrame(data)
 
 
-def model_comparison(df, selection):
+def model_comparison(df, selection, key_var='num_states', key_var_constant='intercept', constant_value=0):
     # Prepare the data for plotting
-    num_states_poss = sorted(df['num_states'].unique())
-    train_data = [df[(df['num_states'] == num_states) & (df['type'] == 'Train')][selection].values
+    print(constant_value)
+    print(key_var_constant)
+    num_states_poss = sorted(df[key_var].unique())
+    train_data = [df[(df[key_var] == num_states) & (df['type'] == 'Train') & (df[key_var_constant] == constant_value)][selection].values
                   for num_states in num_states_poss]
-    test_data = [df[(df['num_states'] == num_states) & (df['type'] == 'Test')][selection].values
+    test_data = [df[(df[key_var] == num_states) & (df['type'] == 'Test') & (df[key_var_constant] == constant_value)][selection].values
                   for num_states in num_states_poss]
 
     # Create violin plots
@@ -101,20 +103,46 @@ def model_comparison(df, selection):
 
 
     # Customize the plot
-    ax.set_title(f'Train and Test {selection} Averages by Number of States')
-    ax.set_xlabel('Number of States')
+    if key_var == 'num_states':
+        first_string = 'Number of States'
+    else:
+        first_string = 'Intercept'
+
+    if key_var_constant == 'num_states':
+        second_string = 'Number of States'
+    else:
+        second_string = 'Intercept'
+    ax.set_title(f'Train and Test {selection} Averages by {first_string} \n holding {second_string} at {constant_value}')
+    ax.set_xlabel(f'{first_string}')
     ax.set_ylabel(f'{selection}')
     ax.set_xticks(num_states_poss)
 
     save_directory = Path(f"{os.pardir}/data/{subject}/{session}/model")
-    save_name = f'bhv_model_{selection}.png'
+    save_name = f'bhv_model_{selection}_{key_var}_constant{key_var_constant}{constant_value}.svg'
     plt.tight_layout()
     # Show plot
     plt.show()
     plt.savefig(save_directory / save_name)
 
-# Less step look at AIC and BIC
 
-model_comparison(df, 'log-likelihood')
-model_comparison(df, 'BIC')
-model_comparison(df, 'AIC')
+
+
+# Less step look at AIC and BIC
+key_word = 'num_states'
+key_word_constant = 'intercept'
+for i in range(2):
+    constant_value = i
+    model_comparison(df, 'log-likelihood', key_word, key_word_constant, constant_value)
+    model_comparison(df, 'BIC', key_word, key_word_constant, constant_value)
+    model_comparison(df, 'AIC', key_word, key_word_constant, constant_value)
+key_word = 'intercept'
+key_word_constant = 'num_states'
+for i in range(1, 5):
+    constant_value = i
+    print(i)
+    print(key_word)
+    print(key_word_constant)
+    print('huh')
+    model_comparison(df, 'log-likelihood', key_word, key_word_constant, constant_value)
+    model_comparison(df, 'BIC', key_word, key_word_constant, constant_value)
+    model_comparison(df, 'AIC', key_word, key_word_constant, constant_value)
