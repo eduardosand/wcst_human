@@ -4,6 +4,7 @@ import numpy as np
 from BB_processlfp import lfp_prep, organize_data, plot_signal_avg
 import scipy
 from scipy import stats
+import os
 # This code exists to run an LDA sweeping timepoint by timepoint
 
 # magic variables determine the data that I want to look and what type of processing
@@ -11,13 +12,13 @@ test_subject = 'IR95'
 test_session = 'sess-3'
 task = 'wcst'
 bp = 1000
-# event_lock = 'Feedback'
-event_lock = 'Onset'
+event_lock = 'Feedback'
+# event_lock = 'Onset'
 feature = 'correct'
 # feature = 'rule dimension'
 standardized_data = True
 # standardized_data = False
-electrode_selection = 'all'
+electrode_selection = 'macrocontact'
 # baseline=(2,2.5)
 baseline = (-0.5, 0)
 car_setting = False
@@ -49,6 +50,7 @@ plot_signal_avg(organized_data_mean, test_subject, test_session, trial_time, lab
 mean_accuracies = []
 sem_accuracies = []
 p_values = []
+lda_loadings = []
 for i in range(n_timepoints):
     X = organized_data[:, :, i]
     # X = epochs_dataset.get_data(copy=False)[:, :, i]
@@ -60,7 +62,9 @@ for i in range(n_timepoints):
     k = 5
     cv = StratifiedKFold(n_splits=k)
     accuracies = cross_val_score(lda, X, y, cv=cv, scoring='accuracy')
-
+    lda.fit(X,y)
+    # get coefficients
+    lda_loadings.append(lda.coef_)
     # Average accuracy
     mean_accuracy = np.mean(accuracies)
     sem = scipy.stats.sem(accuracies)
@@ -88,7 +92,7 @@ print(pvalues_corr)
 print(trial_time[pvalues_corr < 0.05])
 print(np.max(mean_accuracies))
 import matplotlib.pyplot as plt
-binsize = 0.5
+binsize = 0.25
 min_multiple = np.min(trial_time) // binsize
 time_ticks = np.arange(min_multiple * binsize, np.max(trial_time) + binsize, step=binsize)
 time_tick_labels = time_ticks
@@ -133,8 +137,6 @@ if pvalues_corr is not None:
 ax_curr.axvspan(0.3, 0.6, color='grey', alpha=0.3)
 ax_curr.axvline(0, linestyle='--', c='black')
 # ax_curr.set_title(signal_names[ind])
-ax_curr.set_xlabel('')
-ax_curr.set_xticks([])
 
 ax_curr.set_xlabel('Time (s)')
 ax_curr.set_xticks(time_ticks, time_tick_labels)
@@ -145,5 +147,23 @@ ax_curr.set_xticks(time_ticks, time_tick_labels)
 ## we're plotting the same thing in each subplot, so only grab labels for one plot
 # lines, labels = ax.get_legend_handles_labels()
 # fig.legend(lines, labels, loc='right', ncol=1)
+plt.savefig(f'{os.pardir}/results/LDA_{test_subject}_{test_session}_{electrode_selection}.svg')
 
+np.savez(f'{os.pardir}/results/LDA_{test_subject}_{test_session}_{electrode_selection}_loadings.npz',
+         np.array(lda_loadings), trial_time, microwire_names)
+
+lda_loadings = np.squeeze(np.array(lda_loadings)).T
+fig, ax = plt.subplots()
+im = ax.imshow(lda_loadings)
+
+# Show all ticks and label them with the respective list entries
+lda_time_ticks = np.array([ind for ind,i in enumerate(trial_time) if i in time_ticks])
+ax.set_xticks(lda_time_ticks, time_tick_labels[1:-1])
+ax.set_yticks(np.arange(len(microwire_names)), labels=microwire_names)
+
+ax.set_title(f'LDA weights on {electrode_selection} electrodes, {event_lock}-lock')
+# Rotate the tick labels and set their alignment.
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+         rotation_mode="anchor")
+plt.savefig(f'{os.pardir}/results/LDA_{test_subject}_{test_session}_{electrode_selection}_loadings.svg')
 plt.show()
