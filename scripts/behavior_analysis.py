@@ -191,7 +191,7 @@ def wcst_features(file_name):
 
 
 def plot_subject_performance(trial_num, corrects, rule_shifts, subject,
-                             session, output_folder=None):
+                             session, output_folder=None, save='running_avg'):
     """
 
     :param trial_num:
@@ -206,12 +206,20 @@ def plot_subject_performance(trial_num, corrects, rule_shifts, subject,
     # list of dataframe indexes for the third argument
     fig = plt.figure()
     plt.plot(trial_num, corrects, linestyle='dashed')
-    plt.vlines(rule_shifts[rule_shifts == True].index, 1, 0, 'red')
+    if save=='running_avg':
+        plt.vlines(rule_shifts, 1, 0, 'red')
+    else:
+        plt.vlines(rule_shifts, max(corrects), 0, 'red')
+
+    # plt.vlines(rule_shifts[rule_shifts == True].index, 1, 0, 'red')
     plt.xlabel('Trial Number')
-    plt.ylabel(f'Accuracy \n (Running Average)')
+    if save=='running_avg':
+        plt.ylabel(f'Accuracy \n (Running Average)')
+    else:
+        plt.ylabel("Response Time")
     plt.title(f'{subject} WCST performance: session {session}')
     if output_folder is not None:
-        plt.savefig(os.path.join(output_folder, f'{subject}_{session}.png'))
+        plt.savefig(os.path.join(output_folder, f'{subject}_{session}_{save}.svg'))
         plt.close()
     else:
         plt.show()
@@ -254,8 +262,10 @@ def main():
         if summary_df.loc[row, 'Sessions'] == 'None':
             continue
         else:
-            subject = summary_df.loc[row, 'Subjects']
-            sessions = summary_df.loc[row, 'Sessions']
+            # subject = summary_df.loc[row, 'Subjects']
+            # sessions = summary_df.loc[row, 'Sessions']
+            subject = 'IR95'
+            sessions = 3
             for session in np.arange(1, int(sessions)+1):
                 # The underscore looks weird, but that's what the data on nas is
                 file_name = f'sub-{subject}-sess-{session}-beh.csv'
@@ -266,6 +276,10 @@ def main():
                 beh_data, rule_shifts_ind, _ = process_wcst_behavior(file_path, running_avg)
                 plot_subject_performance(beh_data['trials_thisIndex'],
                                          beh_data[f'running_avg_{running_avg}'],
+                                         rule_shifts_ind, subject, session,
+                                         output_folder=results_directory)
+                plot_subject_performance(beh_data['trials_thisIndex'],
+                                         beh_data[f'response_time'],
                                          rule_shifts_ind, subject, session,
                                          output_folder=results_directory)
 
