@@ -33,7 +33,6 @@ for intercept in intercepts:
                                    f'{diagonal_p}_wzero{wzero}')
             best_test_save_name = best_test_save_name + '.pkl'
             with open(save_directory / best_test_save_name, 'rb') as f:
-                print('yay')
                 [_, best_test_fit_ll, best_test_train_ll, best_test_test_ll, best_test_numTrialTrain, best_test_numTrialTest, train_ll_avg, test_ll_avg, _] = pickle.load(f)
                 train_ll_avgs.append(train_ll_avg)
                 test_ll_avgs.append(test_ll_avg)
@@ -70,8 +69,6 @@ df = pd.DataFrame(data)
 
 def model_comparison(df, selection, key_var='num_states', key_var_constant='intercept', constant_value=0):
     # Prepare the data for plotting
-    print(constant_value)
-    print(key_var_constant)
     num_states_poss = sorted(df[key_var].unique())
     train_data = [df[(df[key_var] == num_states) & (df['type'] == 'Train') & (df[key_var_constant] == constant_value)][selection].values
                   for num_states in num_states_poss]
@@ -99,7 +96,7 @@ def model_comparison(df, selection, key_var='num_states', key_var_constant='inte
     # Manually add legend
     train_patch = plt.Line2D([0], [0], color='blue', lw=4, label='Train')
     test_patch = plt.Line2D([0], [0], color='orange', lw=4, label='Test')
-    ax.legend(handles=[train_patch, test_patch], loc='lower right')
+    ax.legend(handles=[train_patch, test_patch], loc='lower right', fontsize=20)
 
 
     # Customize the plot
@@ -139,10 +136,6 @@ key_word = 'intercept'
 key_word_constant = 'num_states'
 for i in range(1, 5):
     constant_value = i
-    print(i)
-    print(key_word)
-    print(key_word_constant)
-    print('huh')
     model_comparison(df, 'log-likelihood', key_word, key_word_constant, constant_value)
     model_comparison(df, 'BIC', key_word, key_word_constant, constant_value)
     model_comparison(df, 'AIC', key_word, key_word_constant, constant_value)
