@@ -15,21 +15,6 @@ from sklearn.decomposition import PCA
 import warnings
 
 
-def gaussian_smooth(spike_trains_sorted, sigma, step):
-    """
-    Take spike trains and convolve them with Gaussian kernel
-    :param spike_trains_sorted:
-    :param sigma:
-    :param step:
-    :return:
-    """
-    sigma = 0.05
-    gx = np.arange(-4 * sigma, 4 * sigma, step)
-    gaussian = np.exp(-(gx / sigma) ** 2 / 2)[:, np.newaxis]
-    filtered_signals = scipy.signal.convolve(spike_trains_sorted.T, gaussian, mode='same').T
-    return filtered_signals
-
-
 def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptitle, normalization,
                          labels=[], feature_names=[], significance_masks=None):
     """

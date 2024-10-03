@@ -7,6 +7,21 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
+import scipy
+
+
+def gaussian_smooth(spike_trains_sorted, sigma, step):
+    """
+    Take spike trains and convolve them with Gaussian kernel
+    :param spike_trains_sorted:
+    :param sigma:
+    :param step:
+    :return:
+    """
+    gx = np.arange(-4 * sigma, 4 * sigma, step)
+    gaussian = np.exp(-(gx / sigma) ** 2 / 2)[:, np.newaxis]
+    filtered_signals = scipy.signal.convolve(spike_trains_sorted.T, gaussian, mode='same').T
+    return filtered_signals
 
 
 def sort_spike_trains(spike_trains, beh_conditions):
@@ -82,7 +97,7 @@ def get_spike_rate_curves(spike_trains, beh_conditions, tmin=-1., tmax=1.5, step
     return spike_counts, beh_conditions_sorted, change_indices_og
 
 
-def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5):
+def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1., tmax=1.5, gaussian_smooth_bool=False):
     """
     Plot spike counts over time per conditions, using 100 ms bins and stepping by 50 ms to help with smoothing.
     :param ax: Axis object
@@ -96,6 +111,10 @@ def plot_spike_rate_curves(ax, spike_trains, beh_conditions, color_dict, tmin=-1
     num_conditions = len(np.unique(beh_conditions))
     spike_counts_sorted, beh_conditions_sorted, change_indices = get_spike_rate_curves(spike_trains, beh_conditions,
                                                                                        tmin, tmax)
+    if gaussian_smooth_bool:
+        sigma = 0.05
+        step = 0.05
+        spike_counts_sorted = gaussian_smooth(spike_counts_sorted, sigma, step)
     # next, count spikes in 100 ms bins, stepping by 50 ms
     step = 0.050
     trial_time = np.arange(tmin, tmax+step, step)
@@ -192,13 +211,19 @@ def main():
 
             fig, axs = plt.subplots(4, 3, sharey='row', sharex='col', figsize=(6, 6),
                                     gridspec_kw={'width_ratios': [1, 1, 0.4]})
-            trial_wise_feedback_spikes = get_trial_wise_spike_times(su_timestamps, feedback_times, tmin=-1., tmax=1.5)
+            tmax = 2.5
+            trial_wise_feedback_spikes = get_trial_wise_spike_times(su_timestamps, feedback_times, tmin=-1., tmax=tmax)
             # Plot response in spikes of this one neuron relative to each onset event
             tmin_onset = -0.5
-            trial_wise_onset_spikes = get_trial_wise_spike_times(su_timestamps, onset_times, tmin=tmin_onset, tmax=1.5)
+            trial_wise_onset_spikes = get_trial_wise_spike_times(su_timestamps, onset_times, tmin=tmin_onset, tmax=tmax)
+            gaussian_smooth_bool = True
+            label_fontsize = 18
             for i in range(int(axs.shape[0]/2)):
-                axs[i * 2, 0].set_ylabel("Spiking")
-                axs[i * 2 + 1, 0].set_ylabel('Spike \n Counts')
+                axs[i * 2, 0].set_ylabel("Spiking", fontsize=label_fontsize)
+                if gaussian_smooth_bool:
+                    axs[i * 2 + 1, 0].set_ylabel('Firing \n Rate', fontsize=label_fontsize)
+                else:
+                    axs[i * 2 + 1, 0].set_ylabel('Spike \n Counts', fontsize=label_fontsize)
                 if i == 0:
                     # With the spikes in tow, we'll begin to sort them according rule dimension first
                     sort_order = sorted(set(beh_data['rule dimension']))
@@ -208,13 +233,14 @@ def main():
                         color_dict = dict(zip(sort_order, ['purple', 'orange']))
                     plot_neural_spike_trains(axs[i, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
 
-                    plot_spike_rate_curves(axs[i+1, 0], trial_wise_feedback_spikes, beh_data['rule dimension'], color_dict)
-                    axs[i, 0].set_title('Feedback-locked')
+                    plot_spike_rate_curves(axs[i+1, 0], trial_wise_feedback_spikes, beh_data['rule dimension'],
+                                           color_dict, tmin=-1, tmax=tmax, gaussian_smooth_bool=True)
+                    axs[i, 0].set_title('Feedback \n locked', fontsize=label_fontsize)
                     plot_neural_spike_trains(axs[i, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict)
                     plot_spike_rate_curves(axs[i+1, 1], trial_wise_onset_spikes, beh_data['rule dimension'], color_dict,
-                                           tmin=tmin_onset)
-                    axs[i, 1].set_title("Onset-locked")
-                    # Create a summarized legend
+                                           tmin=tmin_onset, tmax=tmax, gaussian_smooth_bool=True)
+                    axs[i, 1].set_title("Onset \n locked", fontsize=label_fontsize)
+                    # Create a summarized legend,
                     custom_legend = [
                         plt.Line2D([0], [0], color=color_dict[rule], lw=2, label=rule) for rule in sort_order
                     ]
@@ -226,8 +252,8 @@ def main():
                     axs[i+1, 2].axis('off')  # Hide the axis
                     axs[i, 2].axis('off')  # Hide the axis
                     axs[i, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
-                                     ncol=1)  # Adjust the position as needed
-                    plt.suptitle(f"Spike plot for cluster number {su_cluster_num}")
+                                     ncol=1, fontsize=15)  # Adjust the position as needed
+                    plt.suptitle(f"Single Unit {su_cluster_num} Activity", fontsize=30)
                     plt.tight_layout()
                 else:
                     sort_order = sorted(set(beh_data['correct']))
@@ -236,12 +262,13 @@ def main():
                     else:
                         color_dict = dict(zip(sort_order, ['purple', 'orange']))
                     plot_neural_spike_trains(axs[i*2, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
-                    plot_spike_rate_curves(axs[i*2+1, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict)
+                    plot_spike_rate_curves(axs[i*2+1, 0], trial_wise_feedback_spikes, beh_data['correct'], color_dict,
+                                           tmin=-1, tmax=tmax, gaussian_smooth_bool=True)
                     plot_neural_spike_trains(axs[i*2, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict)
                     plot_spike_rate_curves(axs[i*2+1, 1], trial_wise_onset_spikes, beh_data['correct'], color_dict,
-                                           tmin=tmin_onset)
-                    axs[i*2+1, 0].set_xlabel("Time (s)")
-                    axs[i*2+1, 1].set_xlabel("Time (s)")
+                                           tmin=tmin_onset, tmax=tmax, gaussian_smooth_bool=True)
+                    axs[i*2+1, 0].set_xlabel("Time (s)", fontsize=label_fontsize)
+                    axs[i*2+1, 1].set_xlabel("Time (s)", fontsize=label_fontsize)
                     # Create a summarized legend
                     custom_legend = [
                         plt.Line2D([0], [0], color=color_dict[feedback_dim], lw=2, label=feedback_dim) for
@@ -251,8 +278,9 @@ def main():
                     axs[i*2+1, 2].axis('off')  # Hide the axis
                     axs[i*2, 2].axis('off')  # Hide the axis
                     axs[i*2, 2].legend(handles=custom_legend, loc='center', bbox_to_anchor=(1.05, 0.5),
-                                       ncol=1)  # Adjust the position as needed
+                                       ncol=1, fontsize=15)  # Adjust the position as needed
                     plt.tight_layout()
+            plt.savefig(f"{os.pardir}/results/{subject}_{session}_cluster_{su_cluster_num}.svg")
             plt.show()
 
 

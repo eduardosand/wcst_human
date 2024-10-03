@@ -47,9 +47,10 @@ reader.parse_header()
 start_record = reader.global_t_start
 number_spikes = []
 curr_neuron = 0
-event_lock = 'Feedback'
+event_lock = 'Onset'
 su_data_dir = data_directory / "sorted/sort/final"
 all_su_files = os.listdir(su_data_dir)
+label_fontsize=12
 for file in all_su_files:
     # step 1. Load in one file, and comb through it for neurons
     microwire_spikes = loadmat(su_data_dir / file)
@@ -138,9 +139,9 @@ for file in all_su_files:
         lda_time_ticks = np.array([ind for ind, i in enumerate(trial_time) if round(i,1) in time_ticks])
         ax.set_xticks(lda_time_ticks, time_tick_labels)
         ax.set_yticks(np.arange(len(features)), labels=features, fontsize=8)
-        ax.set_title(f'Poisson Regression Weights on Cluster {su_cluster_num}, {event_lock}-lock')
-        ax.set_ylabel("Feature Regressors")
-        ax.set_xlabel("Time (s)")
+        ax.set_title(f'Poisson GLM Weights on Single \n Unit {su_cluster_num}, {event_lock}-lock', fontsize=15)
+        ax.set_ylabel("Regressors", fontsize=label_fontsize)
+        ax.set_xlabel("Time (s)", fontsize=label_fontsize)
         # ax.set_title(f'LDA weights on {electrode_selection} electrodes, {event_lock}-lock')
         # Rotate the tick labels and set their alignment.
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
