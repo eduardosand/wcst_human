@@ -115,11 +115,11 @@ def model_comparison(df, selection, key_var='num_states', key_var_constant='inte
     ax.set_xticks(num_states_poss)
 
     save_directory = Path(f"{os.pardir}/data/{subject}/{session}/model")
-    save_name = f'bhv_model_{selection}_{key_var}_constant{key_var_constant}{constant_value}.svg'
+    save_name = f'bhv_model_{selection}_{key_var}_constant{key_var_constant}_{constant_value}.svg'
     plt.tight_layout()
     # Show plot
-    plt.show()
     plt.savefig(save_directory / save_name)
+    plt.show()
 
 
 
