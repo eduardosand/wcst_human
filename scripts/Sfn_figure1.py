@@ -43,7 +43,7 @@ feature_name='Feedback'
 #                     extra_string=f'Normalization = {standardized_data} {event_lock}-lock',
 #                 signal_names=microwire_names)
 if electrode_selection == 'all':
-    data_modality_string = 'Both macrocontact and microwire broadband LFP'
+    data_modality_string = 'Macrocontact and Microwire broadband LFP'
 else:
     data_modality_string = f'{electrode_selection} broadband LFP'
 dpca_1, Z_1 = dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_dict, test_subject,
