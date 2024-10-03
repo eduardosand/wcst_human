@@ -35,7 +35,7 @@ feature = 'correct'
 standardized_data = True
 # regularization_setting = 'auto'
 regularization_setting = None
-electrode_selection = 'all'
+electrode_selection = 'macrocontact'
 # baseline = (2, 2.5)
 baseline = (-0.5, 0)
 car_setting = False
@@ -126,10 +126,10 @@ brain = mne.viz.Brain(
 )
 
 color_dict = {'BLA':'red','CA1':'red', 'AC':'purple','OFC':'blue','MFG':'green','MTG':'yellow','STS':'orange',
-              'STG':'pink', 'white matter': 'black', 'OoB':'white'}
-
+              'STG':'orange', 'white matter': 'black', 'OoB':'black'}
 # color_dict = {'BLA':'red'}
-colors = [color_dict[coords.loc[i,'Loc Meeting']] for i in coords.index.values]
+colors = [color_dict[coords.loc[i,'Loc Meeting']] if coords.loc[i, 'Electrode'] in microwire_names else 'black'
+          for i in coords.index.values]
 
 for i, xyz in enumerate(xyz_left):
     brain.add_foci(
@@ -151,3 +151,24 @@ brain.show_view('rostral')
 brain.save_image(f'{os.pardir}/results/sample_brain_rostral.png')
 brain.show_view('axial')
 brain.save_image(f'{os.pardir}/results/sample_brain_axial.png')
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+
+# Define the named colors and their corresponding labels
+# colors = ['purple', 'red]  # Example named colors
+# labels = ['Label 1', 'Label 2', 'Label 3']  # Corresponding labels
+#
+
+patches_labels = ['Medial Temporal Lobe', 'Anterior Cingulate', 'Orbitofrontal', 'Medial Temporal Gyrus',
+                  'Superior Temporal Lobe', 'Dropped Electrodes']
+patches_colors = ['Red', 'Purple', 'Blue', 'Yellow', 'Orange', 'Black']
+patchs_color_dict = {'BLA':'red','CA1':'red', 'AC':'purple','OFC':'blue','MTG':'yellow','STS':'orange',
+              'STG':'orange', 'white matter': 'black', 'OoB':'black'}
+# # Create a list of Patch objects (handles for the legend)
+patches = [Patch(color=color, label=label) for color, label in zip(patches_colors, patches_labels)]
+# Create the legend
+plt.legend(handles=patches, loc='center', frameon=False)
+plt.savefig(f'{os.pardir}/results/sample_brain_patches.svg')
+# Display the legend
+plt.show()
