@@ -50,10 +50,12 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
     # time_ticks, time_tick_labels = get_ticks(feedback_locked, fs)
 
     # time = np.arange(n_timepoints)
-
+    legend_fontsize=18
     plt.figure(figsize=(16, 7))
     plt.subplot(131)
-
+    subsection_fontsize = 20
+    y_min = np.min([Z['t'][0, :2], Z['s'][0, :2], Z['st'][0, :2]])
+    y_max = np.max([Z['t'][0, :2], Z['s'][0, :2], Z['st'][0, :2]])
     # The underlying thing here is that Z should have the shape n_components * n_features_1 * ... * n_features_n * n_timepoints
     # One hack is to just check for the length of the shape
     n_features = len(Z['t'].shape) - 2
@@ -85,12 +87,15 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
 
         for s in range(len(features)):
             plt.plot(trial_time, Z['t'][0, s], label=labels[s], color=color_dict[s])
+        plt.ylim([y_min, y_max])
         plt.axvline(0, linestyle='--', c='black')
 
-    plt.title(f'1st time component \n explained variance: {dpca.explained_variance_ratio_["t"][0]:.2%}')
+    plt.title(f'1st time component \n explained variance: {dpca.explained_variance_ratio_["t"][0]:.2%}',
+              fontsize=subsection_fontsize)
     # plt.xticks(time_ticks, time_tick_labels)
-    plt.xlabel('Time (s)')
-    plt.legend()
+    plt.xlabel('Time (s)', fontsize=20)
+    plt.legend(fontsize=legend_fontsize)
+    plt.ylabel('dPC loadings', fontsize=20)
     plt.subplot(132)
     if n_features > 1:
 
@@ -106,27 +111,30 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
             for r in range(n_features_2):
                 plt.plot(trial_time, Z['f'][0, f, r], label=inv_feature_one_dict[f]+inv_feature_two_dict[r])
         plt.axvline(0, linestyle='--', c='black')
-        plt.title(f'1st feedback component \n explained variance: {dpca.explained_variance_ratio_["f"][0]:.2%}')
+        plt.title(f'1st feedback component \n explained variance: {dpca.explained_variance_ratio_["f"][0]:.2%}',
+                  fontsize=subsection_fontsize)
     else:
         for s in range(len(features)):
             plt.plot(trial_time, Z['s'][0, s], label=labels[s], color=color_dict[s])
+        plt.ylim([y_min, y_max])
         # Coordinates for the annotation
         if significance_masks is not None and significance_masks['s'][0]:
             significance = '*'
             y_max = np.max(Z['s'][0,0:len(features)])
             plt.text(np.mean(trial_time), y_max + 0.1, significance, ha='center', fontsize=12)
-            plt.axvline(0, linestyle='--', c='black')
+        plt.axvline(0, linestyle='--', c='black')
         if len(labels) == 0:
             plt.title(f'1st non-time component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
         else:
-            plt.title(f'1st {feature_names[0]} component \n explained variance: {dpca.explained_variance_ratio_["s"][0]:.2%}')
+            plt.title(f'1st {feature_names[0]} component \n explained variance: '
+                      f'{dpca.explained_variance_ratio_["s"][0]:.2%}', fontsize=subsection_fontsize)
 
     # plt.xticks(time_ticks, time_tick_labels)
-    plt.xlabel('Time (s)')
+    plt.xlabel('Time (s)', fontsize=20)
     # pca.explained_variance_ratio_
-    plt.legend()
+    plt.legend(fontsize=legend_fontsize)
     plt.subplot(133)
-
+    # y_range = np.max([Z['r'][0,]])
     if n_features > 1:
         n_features_1, n_features_2 = features.shape
         inv_feature_one_dict = {}
@@ -143,8 +151,12 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
     else:
         for s in range(len(features)):
             plt.plot(trial_time, Z['st'][0, s], label=labels[s], color=color_dict[s])
+        plt.ylim([y_min, y_max])
         plt.axvline(0, linestyle='--', c='black')
-        plt.title(f'1st mixed component \n explained variance: {dpca.explained_variance_ratio_["st"][0]:.2%}')
+
+        plt.axvspan(0.5, 1., color='grey', alpha=0.3)
+        plt.title(f'1st interaction component \n explained variance: {dpca.explained_variance_ratio_["st"][0]:.2%}',
+                  fontsize=subsection_fontsize)
 
 
         # Coordinates for the annotation
@@ -153,14 +165,14 @@ def plot_dPCA_components(dpca, Z, trial_time, features, subject, session, suptit
             y_max = np.max(Z['st'][0,0:len(features)])
             plt.text(np.mean(trial_time), y_max + 0.1, significance, ha='center', fontsize=12)
             plt.axvline(0, linestyle='--', c='black')
-    plt.legend()
+    plt.legend(fontsize=legend_fontsize)
     # plt.xticks(time_ticks, time_tick_labels)
-    plt.xlabel('Time (s)')
+    plt.xlabel('Time (s)', fontsize=20)
     if normalization:
-        plot_description = 'Data was standardized (zscore)'
+        plot_description = 'Z-scored within trial and across electrodes'
     else:
-        plot_description = 'Data was centered but not zscored'
-    plt.suptitle(f' Subject {subject} - Session {session} \n {suptitle} \n {plot_description}')
+        plot_description = 'Centered but not zscored'
+    plt.suptitle(f' Subject {subject} - {session} \n {suptitle} \n {plot_description}', fontsize=28)
     plt.tight_layout()
     results_filename = Path(f'{os.pardir}/results/{subject}_{session}_{suptitle}_dPCA.svg')
     plt.savefig(results_filename)
@@ -389,8 +401,8 @@ def dpca_plot_analysis(organized_data_mean, organized_data, trial_time, feature_
     new_organized_data_frame.dropna(inplace=True, axis='columns')
     trial_wise_data_for_PCA = new_organized_data_frame.to_numpy()
     pca_comparison(dpca, trial_wise_data_for_PCA, type='trial concatenated')
-    suptitle = f'{data_modality} {event_lock}-locked'
-
+    # suptitle = f'{data_modality}, {event_lock}-locked'
+    suptitle = f'{data_modality}'
     plot_dPCA_components(dpca, Z, trial_time, feature_dict, subject, session, suptitle, normalization,
                          labels=feature_dict, feature_names=feature_names, significance_masks=significance_masks)
     return dpca, Z
