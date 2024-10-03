@@ -99,7 +99,7 @@ def model_comparison(df, selection, key_var='num_states', key_var_constant='inte
     # Manually add legend
     train_patch = plt.Line2D([0], [0], color='blue', lw=4, label='Train')
     test_patch = plt.Line2D([0], [0], color='orange', lw=4, label='Test')
-    ax.legend(handles=[train_patch, test_patch])
+    ax.legend(handles=[train_patch, test_patch], loc='lower right')
 
 
     # Customize the plot
@@ -112,9 +112,9 @@ def model_comparison(df, selection, key_var='num_states', key_var_constant='inte
         second_string = 'Number of States'
     else:
         second_string = 'Intercept'
-    ax.set_title(f'Train and Test {selection} Averages by {first_string} \n holding {second_string} at {constant_value}')
-    ax.set_xlabel(f'{first_string}')
-    ax.set_ylabel(f'{selection}')
+    ax.set_title(f'Train and Test {selection} Averages by {first_string} \n holding {second_string} at {constant_value}', fontsize=28)
+    ax.set_xlabel(f'{first_string}', fontsize=20)
+    ax.set_ylabel(f'{selection}', fontsize=20)
     ax.set_xticks(num_states_poss)
 
     save_directory = Path(f"{os.pardir}/data/{subject}/{session}/model")
