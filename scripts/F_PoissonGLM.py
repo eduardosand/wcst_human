@@ -47,7 +47,7 @@ reader.parse_header()
 start_record = reader.global_t_start
 number_spikes = []
 curr_neuron = 0
-
+event_lock = 'Feedback'
 su_data_dir = data_directory / "sorted/sort/final"
 all_su_files = os.listdir(su_data_dir)
 for file in all_su_files:
@@ -56,8 +56,8 @@ for file in all_su_files:
     neuron_counts = microwire_spikes['useNegative'][0].shape[0]
     for neuron_ind in range(neuron_counts):
         su_cluster_num = microwire_spikes['useNegative'][0][neuron_ind]
-        if su_cluster_num != 8192:
-            continue
+        # if su_cluster_num not in [8192, 8488, 14804, 15197]:
+        #     continue
         # Note that these timestamps are in microseconds, and according to machine clock
         microsec_sec_trans = 10**-6
         su_timestamps = np.array([[microwire_spikes['newTimestampsNegative'][0, i]*microsec_sec_trans-start_record] for i in
@@ -73,13 +73,16 @@ for file in all_su_files:
         trial_time = np.round(np.arange(tmin_onset+step, tmax, step), 2)
         # the big thing from preventing us from getting good code is the design matrix
         spike_counts = np.zeros((len(feedback_times), trial_time.shape[0]))
-
+        if event_lock == 'Feedback':
+            trial_wise_spikes = trial_wise_feedback_spikes
+        else:
+            trial_wise_spikes = trial_wise_onset_spikes
         for trial_ind in range(spike_counts.shape[0]):
-            if len(trial_wise_feedback_spikes[trial_ind]) == 0:
+            if len(trial_wise_spikes[trial_ind]) == 0:
                 continue
             for ind, timestep in enumerate(trial_time):
                 # trial_wise_feedback_spikes[trial_ind]
-                spike_counts[trial_ind, ind] = len([spike_time for spike_time in trial_wise_feedback_spikes[trial_ind]
+                spike_counts[trial_ind, ind] = len([spike_time for spike_time in trial_wise_spikes[trial_ind]
                                                     if spike_time > timestep and spike_time <= timestep+step])
 
         spikes_binned = spike_counts
@@ -90,7 +93,7 @@ for file in all_su_files:
         features = ['Feedback', 'Color Rule', 'Texture Rule', 'Shape Rule']
         X = beh_data[features]
         feature_loadings = np.zeros((4, len(trial_time)))
-        p_values = np.zeros((4, len(trial_time)))
+        p_values = np.ones((4, len(trial_time)))
         for ind, timestep in enumerate(trial_time):
             print(timestep)
             y = spike_counts[:, ind]
@@ -110,7 +113,6 @@ for file in all_su_files:
 
         # pGLM_results = glm_poisson_exp.fit(max_iter=100, tol=1e-6, tol_criterion='params')
         print('huh')
-        event_lock = 'Feedback'
         fig, ax = plt.subplots(figsize=(8, 2))
 
         binsize = 0.2
@@ -127,8 +129,10 @@ for file in all_su_files:
         # feature_loadings[p_values > 0.05] = 0
         vmin = np.min(feature_loadings)
         vmax = np.max(feature_loadings)
+        alpha = np.ones_like(feature_loadings)
+        alpha[p_values > 0.05] = 0.2
         # feature_loadings[p_values > 0.05] = vmax - (vmax-vmin)/2
-        im = ax.imshow(feature_loadings, vmin=vmin, vmax=vmax, cmap='bwr')
+        im = ax.imshow(feature_loadings, vmin=vmin, vmax=vmax, cmap='viridis', alpha=alpha)
 
         # Show all ticks and label them with the respective list entries
         lda_time_ticks = np.array([ind for ind, i in enumerate(trial_time) if round(i,1) in time_ticks])
@@ -147,19 +151,19 @@ for file in all_su_files:
         cbar_ax = fig.add_axes([0.88, 0.3, 0.04, 0.5])
         fig.colorbar(im, cax=cbar_ax)
         # plt.tight_layout()
-        plt.savefig(f'{os.pardir}/results/Pois_reg_{subject}_{session}_{su_cluster_num}_loadings.svg')
+        plt.savefig(f'{os.pardir}/results/Pois_reg_{subject}_{session}_{su_cluster_num}_{step}_{event_lock}_loadings.svg')
 
         plt.show()
         # plt.savefig(f'{os.pardir}/results/LDA_{test_subject}_{test_session}_{electrode_selection}_loadings.svg')
 
-        from matplotlib import pyplot as plt
-        sort_order = sorted(set(beh_data['Feedback']))
-        if len(sort_order) == 3:
-            color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
-        else:
-            color_dict = dict(zip(sort_order, ['purple', 'orange']))
-        fig, ax = plt.subplots()
-        plot_neural_spike_trains(ax, trial_wise_feedback_spikes, beh_data['Feedback'], color_dict)
+        # from matplotlib import pyplot as plt
+        # sort_order = sorted(set(beh_data['Feedback']))
+        # if len(sort_order) == 3:
+        #     color_dict = dict(zip(sort_order, ['red', 'green', 'blue']))
+        # else:
+        #     color_dict = dict(zip(sort_order, ['purple', 'orange']))
+        # fig, ax = plt.subplots()
+        # plot_neural_spike_trains(ax, trial_wise_feedback_spikes, beh_data['Feedback'], color_dict)
 
         # pGLM_const = glm_poisson_exp[-1].fit_['beta0'] # constant ("dc term)")
         # pGLM_const = pGLM_results.params[0]
