@@ -126,7 +126,8 @@ def process_wcst_behavior(file_name, running_avg=5):
         else:
             beh_data.loc[row, 'chosen'] = beh_data.loc[
                 row, f'bmp_table_{resp}'].replace('.bmp', '')
-
+            if beh_data.loc[row, 'chosen'][2] == 'S':
+                beh_data.loc[row, 'chosen'] = beh_data.loc[row, 'chosen'][:2] + 'W'
         beh_data.loc[row, 'rule'] = rule
             # problem_rows.append(row)
         if rule in beh_data.loc[row, 'chosen']:
@@ -205,19 +206,28 @@ def plot_subject_performance(trial_num, corrects, rule_shifts, subject,
     # We expect dataframe series for the first two and a 
     # list of dataframe indexes for the third argument
     fig = plt.figure()
-    plt.plot(trial_num, corrects, linestyle='dashed')
+    plt.plot(trial_num, corrects, c='blue')
     if save=='running_avg':
-        plt.vlines(rule_shifts, 1, 0, 'red')
+        plt.vlines(rule_shifts, 1.3, 0, 'red', linestyle='dashed')
+        plt.ylim([0.0, 1])
     else:
-        plt.vlines(rule_shifts, max(corrects), 0, 'red')
+        plt.vlines(rule_shifts, 4.2, 0, 'red', linestyle='dashed')
+        plt.ylim([0.,4])
 
     # plt.vlines(rule_shifts[rule_shifts == True].index, 1, 0, 'red')
-    plt.xlabel('Trial Number')
+    plt.xlabel('Trial Number', fontsize=20)
+    title_fontsize = 28
+
     if save=='running_avg':
-        plt.ylabel(f'Accuracy \n (Running Average)')
+        plt.ylabel(f'Accuracy \n (Running Average)', fontsize=20)
+        # plt.title('Example WCST Performance', fontsize=title_fontsize)
+        plt.title(f'{subject} WCST performance', fontsize=title_fontsize)
     else:
-        plt.ylabel("Response Time")
-    plt.title(f'{subject} WCST performance: session {session}')
+        plt.ylabel("Response Time (s) ", fontsize=20)
+        # plt.title('Example WCST Response Times', fontsize=title_fontsize)
+        plt.title(f'{subject} WCST Response Times', fontsize=title_fontsize)
+
+    # plt.title(f'{subject} WCST performance: session {session}')
     if output_folder is not None:
         plt.savefig(os.path.join(output_folder, f'{subject}_{session}_{save}.svg'))
         plt.close()
