@@ -19,5 +19,7 @@ dependencies:
       - ephyviewer
       - BCI2kReader
       - neo
+      - pyvistaqt
+      - nibabel
 
 prefix: /home/eduardo/anaconda3/envs/wcst_human
