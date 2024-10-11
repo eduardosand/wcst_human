@@ -4,6 +4,8 @@ import numpy as np
 from scipy import stats
 from scipy.stats import permutation_test
 import mne
+import os
+import pandas as pd
 
 # magic variables determine the data that I want to look and what type of processing
 test_subject = 'IR95'
@@ -17,7 +19,7 @@ feature = 'correct'
 standardized_data = True
 # baseline = (2, 2.5)
 baseline = (-0.5, 0)
-electrode_selection = 'microwire'
+electrode_selection = 'macrocontact'
 # standardized_data = False
 epochs_dataset, trial_time, electrode_names, feature_values = lfp_prep(test_subject, test_session,
                                                                        task, event_lock=event_lock,
@@ -27,6 +29,15 @@ epochs_dataset, trial_time, electrode_names, feature_values = lfp_prep(test_subj
 organized_data_mean, organized_data, feedback_dict = organize_data(epochs_dataset, feature_values,
                                                                    standardized_data=standardized_data)
 
+anat_csv = f"{os.pardir}/data/{test_subject}/{test_subject}_Elec_Notes.xlsx"
+# load the coordinate values
+coords = pd.read_excel(anat_csv)
+localization_dict = {}
+feature_key_values = [(coords.loc[ind, "Electrode"], coords.loc[ind, "Loc Meeting"]) for ind in coords.index.values]
+localization_dict.update(feature_key_values)
+localization_names = [localization_dict[wire] if not wire.startswith('m') else 'u' +
+                                                                               localization_dict[wire[1:4] +'1']
+                      for ind, wire in enumerate(electrode_names)]
 n_neurons, n_cond, n_timepoints = organized_data_mean.shape
 feature_dict = feedback_dict
 # print(feature_dict)
@@ -73,19 +84,27 @@ for j in range(n_electrodes):
                 show=False,
                 colorbar=False, cmap=cmap, yscale='log',
             )
-        ax.set_title(f"{i} - n={trial_num_dict[i]}")
+        if i != 'contrast':
+            ax.set_title(f"{i} - n={trial_num_dict[i]}", fontsize=20)
+        else:
+            ax.set_title(f"{i}", fontsize=20)
         ax.set_xticks([-0.5, 0, 0.3, 0.6, 1, 1.5])
         ax.set_xlim([-0.5, 1.5])
         ax.set_ylim([np.min(freqs), np.max(freqs)])
+        ax.set_ylabel("")
         # ax.set_yticks(freqs, freqs)
         # ax.set_yticks([4, 5, 6, 7, 8, 9])
         count += 1
     # axs[count].axis('off')
-    plt.suptitle(f"{electrode_names[j]} - {test_subject} - {test_session}")
+    # plt.suptitle(f"{electrode_names[j]} - {test_subject} - {test_session}")
+    plt.suptitle(f"{localization_names[j]}", fontsize=30)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
     sm.set_array([])
     plt.colorbar(sm, cax=axs[count])
     plt.tight_layout()
+    plt.savefig(f"{os.pardir}/results/tfr_{electrode_names[j]}_{test_subject}_{test_session}_{feature}.svg")
+    plt.savefig(f"{os.pardir}/results/tfr_{electrode_names[j]}_{test_subject}_{test_session}_{feature}.png",
+                dpi=600)
     plt.show()
 
 
