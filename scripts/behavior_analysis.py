@@ -134,7 +134,7 @@ def process_wcst_behavior(file_name, running_avg=5):
             beh_data.loc[row, 'correct'] = int(1)
         # magic number 5 bc running average is 5
         beh_data.loc[row, f'running_avg_{running_avg}'] = np.mean(
-            beh_data.loc[np.arange(max(row - running_avg + 1, 0), row + 1), 'correct'])
+            beh_data.loc[np.arange(max(row - running_avg + 1, 0), row + 1), 'ans_correctness'])
 
     # # Hopefully irrelevant
     # # The rule S can mean two separate rules. So we'll check for this.
@@ -178,6 +178,7 @@ def process_wcst_behavior(file_name, running_avg=5):
     beh_data.dropna(subset='key press', inplace=True)
     # beh_data[beh_data.rt == '[]'] = 0.
     # beh_data[beh_data.rt].astype(float)
+    beh_data['response_time'] = beh_data['response_time'].astype(float)
     return beh_data, rule_shifts_ind, incorrect_eq
 
 
@@ -229,7 +230,7 @@ def plot_subject_performance(trial_num, corrects, rule_shifts, subject,
 
     # plt.title(f'{subject} WCST performance: session {session}')
     if output_folder is not None:
-        plt.savefig(os.path.join(output_folder, f'{subject}_{session}_{save}.svg'))
+        plt.savefig(os.path.join(output_folder, f'{subject}_{session}_{save}.png'))
         plt.close()
     else:
         plt.show()
