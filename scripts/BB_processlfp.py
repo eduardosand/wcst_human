@@ -704,7 +704,7 @@ def organize_data(epochs_object, feature_values, standardized_data=False,
     return organized_data_mean, zscored_data, feedback_dict
 
 
-def morlet(sbj, session, task, epochs, standardized=True, baseline=(2,2.5), trial_baseline=False):
+def morlet(sbj, session, task, epochs, standardized=True, baseline=(2,2.5), trial_baseline=False, tfr_average=True):
     """
     Perform a time frequency decomposition using Morlet wavelets. Use fewer cycles on higher frequencies
     This serves to get a quick glance at the bands that may be involved in task.
@@ -757,11 +757,14 @@ def morlet(sbj, session, task, epochs, standardized=True, baseline=(2,2.5), tria
         bstd = np.nanstd(tfr_power.data[:, :, :, bix], axis=(3), keepdims=True)
         tfr_power.data -= bmean
 
-    # Finally compute average tfr on group level
-    tfr_power_avg = tfr_power.average()
-    file_path = path_directory / f"{sbj}_{session}_{task}_morlet_decomposition_tfr_{standardized}.h5"
-    tfr_power_avg.save(file_path, overwrite=True)
-    return tfr_power_avg, freqs
+    if tfr_average:
+        # Finally compute average tfr on group level
+        tfr_power_final = tfr_power.average()
+        file_path = path_directory / f"{sbj}_{session}_{task}_morlet_decomposition_tfr_{standardized}.h5"
+        tfr_power_final.save(file_path, overwrite=True)
+    else:
+        tfr_power_final = tfr_power
+    return tfr_power_final, freqs
 
 def log_normalize(tfr_power, trial_time, baseline=(2, 2.5)):
     """
@@ -807,24 +810,22 @@ def band_extraction(test_subject, test_session, task, epochs, standardized=True,
     """
     if method=='morlet':
         tfr, freqs = morlet(test_subject, test_session, task, epochs, standardized=standardized,
-               baseline=baseline, trial_baseline=trial_baseline)
+               baseline=baseline, trial_baseline=trial_baseline, tfr_average=False)
         if foi == 'theta':
-            band_range = [4,8]
+            band_range = [4, 8]
             # shape should be 40 by 3001
         elif foi == 'alpha':
-            band_range = [8,13]
+            band_range = [8, 13]
         elif foi == 'beta':
-            band_range = [13,30]
+            band_range = [13, 30]
         elif foi == 'HFA':
-            band_range = [70,150]
+            band_range = [70, 150]
         else:
-            band_range = [0.,1000.]
+            band_range = [0., 1000.]
 
         freqs_ind = [ind for ind, freq in enumerate(freqs) if
                      (min(band_range) <= freq <= max(band_range))]
-        print('huh')
-        banded_power = np.mean(tfr._data[:, freqs_ind, :], axis=1)
-
+        banded_power = np.mean(tfr._data[:, :, freqs_ind, :], axis=2)
     return banded_power
 
 
