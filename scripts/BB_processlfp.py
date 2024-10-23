@@ -761,7 +761,7 @@ def morlet(sbj, session, task, epochs, standardized=True, baseline=(2,2.5), tria
     tfr_power_avg = tfr_power.average()
     file_path = path_directory / f"{sbj}_{session}_{task}_morlet_decomposition_tfr_{standardized}.h5"
     tfr_power_avg.save(file_path, overwrite=True)
-    return tfr_power_avg
+    return tfr_power_avg, freqs
 
 def log_normalize(tfr_power, trial_time, baseline=(2, 2.5)):
     """
@@ -794,6 +794,38 @@ def log_normalize(tfr_power, trial_time, baseline=(2, 2.5)):
     HFA_power_normalized /= n_freq
     return HFA_power_normalized
 
+
+def band_extraction(test_subject, test_session, task, epochs, standardized=True, baseline=(-0.5, 0),
+                    trial_baseline=True, foi='theta', method='morlet'):
+    """
+    This function serves to extract single trial estimates of specific frequency bands.
+    Ideally, we'll look at theta, alpha, beta, gamma, high gamma, using morlet and hilbert transforms.
+    For now, we'll isolate using our existing morlet dataset
+    :param foi:
+    :param method:
+    :return:
+    """
+    if method=='morlet':
+        tfr, freqs = morlet(test_subject, test_session, task, epochs, standardized=standardized,
+               baseline=baseline, trial_baseline=trial_baseline)
+        if foi == 'theta':
+            band_range = [4,8]
+            # shape should be 40 by 3001
+        elif foi == 'alpha':
+            band_range = [8,13]
+        elif foi == 'beta':
+            band_range = [13,30]
+        elif foi == 'HFA':
+            band_range = [70,150]
+        else:
+            band_range = [0.,1000.]
+
+        freqs_ind = [ind for ind, freq in enumerate(freqs) if
+                     (min(band_range) <= freq <= max(band_range))]
+        print('huh')
+        banded_power = np.mean(tfr._data[:, freqs_ind, :], axis=1)
+
+    return banded_power
 
 
 def plot_signal_avg(organized_data_mean, subject, session, trial_time,
